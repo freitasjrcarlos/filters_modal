@@ -54,6 +54,9 @@ module Filterable
         when 'title', 'description'
           sanitized_value = ActiveRecord::Base.connection.quote("%#{value}%")
           "#{field} LIKE #{sanitized_value}"
+        when 'status'
+          boolean_value = value.to_s.downcase == 'true' ? 'true' : 'false'
+          "#{field} = #{boolean_value}"
         else
           sanitized_value = ActiveRecord::Base.connection.quote(value)
           "#{field} = #{sanitized_value}"
@@ -63,13 +66,22 @@ module Filterable
         when 'title', 'description'
           sanitized_value = ActiveRecord::Base.connection.quote("%#{value}%")
           "#{field} NOT LIKE #{sanitized_value}"
+        when 'status'
+          boolean_value = value.to_s.downcase == 'true' ? 'true' : 'false'
+          "#{field} != #{boolean_value}"
         else
           sanitized_value = ActiveRecord::Base.connection.quote(value)
           "#{field} != #{sanitized_value}"
         end
       else
-        sanitized_value = ActiveRecord::Base.connection.quote(value)
-        "#{field} = #{sanitized_value}"
+        case field
+        when 'status'
+          boolean_value = value.to_s.downcase == 'true' ? 'true' : 'false'
+          "#{field} = #{boolean_value}"
+        else
+          sanitized_value = ActiveRecord::Base.connection.quote(value)
+          "#{field} = #{sanitized_value}"
+        end
       end
     end
   end

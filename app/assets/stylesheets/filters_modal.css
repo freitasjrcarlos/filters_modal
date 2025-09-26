@@ -459,10 +459,11 @@
   border-radius: var(--radius-full);
   transition: var(--transition-fast);
   margin-left: var(--spacing-xs);
+  background-color: var(--color-danger);
 }
 
 .filter-tag-remove:hover {
-  background-color: var(--color-overlay-white);
+  background-color: var(--color-danger);
   color: var(--color-white);
   text-decoration: none;
 }
@@ -474,7 +475,7 @@
 }
 
 .filter-remove-form input[type="submit"] {
-  background: none;
+  background: var(--color-danger);
   border: none;
   color: var(--color-white);
   font-weight: bold;
@@ -488,7 +489,7 @@
 }
 
 .filter-remove-form input[type="submit"]:hover {
-  background-color: var(--color-overlay-white);
+  background-color: var(--color-danger);
 }
 
 .pagination-container {

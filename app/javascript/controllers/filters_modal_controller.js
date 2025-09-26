@@ -337,7 +337,6 @@ export default class extends Controller {
     
     filterOperators.forEach(select => {
       select.value = operator;
-      select.disabled = true;
     });
   }
 
