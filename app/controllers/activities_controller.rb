@@ -31,10 +31,12 @@ class ActivitiesController < ApplicationController
   # GET /activities/new
   def new
     @activity = Activity.new
+    @users = User.all
   end
 
   # GET /activities/1/edit
   def edit
+    @users = User.all
   end
 
   # POST /activities or /activities.json
@@ -132,7 +134,7 @@ class ActivitiesController < ApplicationController
 
     # Only allow a list of trusted parameters through.
     def activity_params
-      params.expect(activity: [ :title, :description, :status, :start_date, :end_date, :kind, :completed_percent, :priority, :urgency, :points ])
+      params.expect(activity: [ :title, :description, :status, :start_date, :end_date, :kind, :completed_percent, :priority, :urgency, :points, :user_id ])
     end
 
     def filter_params

@@ -56,8 +56,9 @@ module ActivitiesHelper
       {
         key: :priority,
         label: 'Prioridade',
-        type: :integer,
-        sortable: true
+        type: :enum,
+        sortable: true,
+        format: ->(value) { Activity::PRIORITIES[value] }
       },
       {
         key: :urgency,

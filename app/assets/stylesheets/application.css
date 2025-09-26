@@ -186,6 +186,11 @@ body {
   color: var(--color-danger-hover);
 }
 
+.btn-sm {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 12px;
+}
+
 .form-group {
   margin-bottom: var(--spacing-lg);
 }

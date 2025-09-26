@@ -27,6 +27,12 @@ export default class extends Controller {
       3: "Baixo"
     };
     
+    this.priorities = {
+      1: "Alta",
+      2: "Média", 
+      3: "Baixa"
+    };
+    
     this.addValidationStyles();
     this.centerOperatorOptions();
     
@@ -342,7 +348,7 @@ export default class extends Controller {
     
     valueContainer.removeAttribute('data-field-type');
     
-    if (['kind', 'urgency', 'user_id'].includes(field)) {
+    if (['kind', 'urgency', 'priority', 'user_id'].includes(field)) {
       valueContainer.setAttribute('data-field-type', 'select');
       this.renderSelectField(valueContainer, field, filterRow);
     } else if (field === 'status') {
@@ -387,6 +393,10 @@ export default class extends Controller {
         .join('');
     } else if (field === 'urgency') {
       options = Object.entries(this.urgencies)
+        .map(([value, label]) => `<option value="${value}">${label}</option>`)
+        .join('');
+    } else if (field === 'priority') {
+      options = Object.entries(this.priorities)
         .map(([value, label]) => `<option value="${value}">${label}</option>`)
         .join('');
     } else if (field === 'user_id') {

@@ -12,10 +12,12 @@ class Activity < ApplicationRecord
   }.freeze
 
   URGENCIES = {
-    1 => "Alto",
-    2 => "Médio", 
-    3 => "Baixo"
+    1 => "Alta",
+    2 => "Média", 
+    3 => "Baixa"
   }.freeze
+
+  PRIORITIES = URGENCIES
 
   def kind_value
     KINDS[self.kind]
@@ -23,6 +25,10 @@ class Activity < ApplicationRecord
 
   def urgency_value
     URGENCIES[self.urgency]
+  end
+
+  def priority_value
+    PRIORITIES[self.priority]
   end
 
   # Scopes to filters
