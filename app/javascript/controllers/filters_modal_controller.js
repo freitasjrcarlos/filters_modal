@@ -28,9 +28,24 @@ export default class extends Controller {
     };
     
     this.addValidationStyles();
+    this.centerOperatorOptions();
     
     this.handleKeydown = this.handleKeydown.bind(this);
     document.addEventListener('keydown', this.handleKeydown);
+    
+    setTimeout(() => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasFilters = Array.from(urlParams.entries()).some(([key, value]) => 
+        key.startsWith('groups[') && value
+      );
+      
+      if (!hasFilters) {
+        const groupElement = document.getElementById('group-group_1');
+        if (groupElement) {
+          this.addFilterToGroup(groupElement);
+        }
+      }
+    }, 100);
   }
 
   disconnect() {
@@ -96,9 +111,9 @@ export default class extends Controller {
     
     if (hasFilters) {
       this.restoreFiltersFromUrl();
-    }
-    
+    } else {
     this.updateButtonStates();
+    }
   }
 
   closeModal() {
@@ -112,7 +127,7 @@ export default class extends Controller {
     }
   }
 
-  addGroup() {    
+  addGroup(skipAutoFilter = false) {    
     if (this.groupCount >= this.maxGroupsValue) {
       this.showLimitMessage('groups');
       return;
@@ -124,6 +139,13 @@ export default class extends Controller {
 
     const groupHtml = this.createGroupHtml(groupId);
     this.groupContainerTarget.insertAdjacentHTML('beforeend', groupHtml);
+
+    if (!skipAutoFilter) {
+      const groupElement = document.getElementById(`group-${groupId}`);
+      if (groupElement) {
+        this.addFilterToGroup(groupElement);
+      }
+    }
 
     this.updateButtonStates();
   }
@@ -146,9 +168,13 @@ export default class extends Controller {
       return;
     }
 
+    const blockElement = groupElement.closest('.filters-block');
+    if (blockElement) {
+      blockElement.remove();
+    }
+
     delete this.filterCounts[groupId];
     this.groupCount--;
-    groupElement.remove();
     
     this.updateButtonStates();
   }
@@ -272,8 +298,23 @@ export default class extends Controller {
 
   updateGroupOperator(event) {
     const operator = event.target.value;
-    const groupElements = this.groupContainerTarget.querySelectorAll('.filters-group');
     
+    const allGroupOperatorSelects = this.element.querySelectorAll('select[name*="group_operator_"]');
+    allGroupOperatorSelects.forEach((select, index) => {
+      select.value = operator;
+      
+      if (index === 0) {
+        select.classList.remove('operator-disabled');
+        select.classList.add('operator-editable');
+        select.disabled = false;
+      } else {
+        select.classList.remove('operator-editable');
+        select.classList.add('operator-disabled');
+        select.disabled = true;
+      }
+    });
+    
+    const groupElements = this.groupContainerTarget.querySelectorAll('.filters-group');
     groupElements.forEach(group => {
       const operatorSelect = group.querySelector('.group-operator');
       if (operatorSelect) {
@@ -336,6 +377,8 @@ export default class extends Controller {
     const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
                  filterRow.querySelector('select[name*="[value]"]')?.name;
     
+    const existingValue = container.querySelector('input, select')?.value || '';
+    
     let options = '';
     
     if (field === 'kind') {
@@ -361,11 +404,20 @@ export default class extends Controller {
     `;
     
     container.innerHTML = selectHtml;
+    
+    if (existingValue) {
+      const newSelect = container.querySelector('select');
+      if (newSelect) {
+        newSelect.value = existingValue;
+      }
+    }
   }
 
   renderBooleanField(container, filterRow) {
     const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
                  filterRow.querySelector('select[name*="[value]"]')?.name;
+    
+    const existingValue = container.querySelector('input, select')?.value || '';
     
     container.innerHTML = `
       <select name="${name}" class="filters-select">
@@ -374,24 +426,49 @@ export default class extends Controller {
         <option value="false">Inativo</option>
       </select>
     `;
+    
+    if (existingValue) {
+      const newSelect = container.querySelector('select');
+      if (newSelect) {
+        newSelect.value = existingValue;
+      }
+    }
   }
 
   renderDateField(container, filterRow) {
     const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
                  filterRow.querySelector('select[name*="[value]"]')?.name;
     
+    const existingValue = container.querySelector('input, select')?.value || '';
+    
     container.innerHTML = `
       <input type="date" name="${name}" class="filters-select">
     `;
+    
+    if (existingValue) {
+      const newInput = container.querySelector('input');
+      if (newInput) {
+        newInput.value = existingValue;
+      }
+    }
   }
 
   renderTextField(container, filterRow) {
     const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
                  filterRow.querySelector('select[name*="[value]"]')?.name;
     
+    const existingValue = container.querySelector('input, select')?.value || '';
+    
     container.innerHTML = `
       <input type="text" name="${name}" class="filters-select">
     `;
+    
+    if (existingValue) {
+      const newInput = container.querySelector('input');
+      if (newInput) {
+        newInput.value = existingValue;
+      }
+    }
   }
 
   applyFilters() {
@@ -534,7 +611,7 @@ export default class extends Controller {
     }
   }
 
-  clearFilters() {
+  clearFilters(resetCounters = true) {
     const form = this.element.querySelector('form');
     form.reset();
     
@@ -556,38 +633,62 @@ export default class extends Controller {
       }
     }
     
+    if (resetCounters) {
     this.groupCount = 1;
     this.filterCounts = { group_1: 0 };
+    }
     
     this.clearValidationError();
-    
     this.updateButtonStates();
   }
 
   createGroupHtml(groupId) {
+    const previousOperator = this.getSelectedOperator();
+    const isFirstGroup = groupId === 'group_1';
+    const isFirstOperator = groupId === 'group_2';
+    
     return `
-      <div class="filters-group" data-group-id="${groupId}" id="group-${groupId}">
-        <div class="filters-group-header">
-          <h4 class="filters-group-title">📋 Grupo ${this.groupCount}</h4>
-          <button type="button" class="filters-btn filters-btn-outline-danger" data-action="click->filters-modal#removeGroup" id="remove-group-${groupId}">
-            🗑️ Remover Grupo
-          </button>
+      <div class="filters-block" data-group-id="${groupId}">
+        <div class="filters-left-section">
+          <div class="filters-operator-block" id="operator-block-${groupId}">
+            ${isFirstGroup ? `
+              <div class="filters-where-block">
+                <div class="filters-where-label">Onde</div>
+              </div>
+            ` : `
+              <select name="group_operator_${groupId}" class="filters-operator-select ${isFirstOperator ? 'operator-editable' : 'operator-disabled'}" data-action="change->filters-modal#updateGroupOperator" ${isFirstOperator ? '' : 'disabled'}>
+                <option value="AND" ${previousOperator === 'AND' ? 'selected' : ''}>E</option>
+                <option value="OR" ${previousOperator === 'OR' ? 'selected' : ''}>OU</option>
+              </select>
+            `}
+          </div>
         </div>
         
-        <div class="filters-group-operator-section">
-          <label class="filters-label">Operador entre filtros:</label>
-          <select name="groups[${groupId}][filter_operator]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-${groupId}">
-            <option value="AND">E (AND)</option>
-            <option value="OR">OU (OR)</option>
-          </select>
+        <div class="filters-right-section">
+          <div class="filters-group" data-group-id="${groupId}" id="group-${groupId}">
+            <div class="filters-group-header">
+              <h4 class="filters-group-title">📋 Grupo ${this.groupCount}</h4>
+              <button type="button" class="filters-btn filters-btn-outline-danger" data-action="click->filters-modal#removeGroup" id="remove-group-${groupId}">
+                🗑️ Remover grupo
+              </button>
+            </div>
+            
+            <div class="filters-group-operator-section">
+              <label class="filters-label">Operador entre filtros:</label>
+              <select name="groups[${groupId}][filter_operator]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-${groupId}">
+                <option value="AND">E (AND)</option>
+                <option value="OR">OU (OR)</option>
+              </select>
+            </div>
+            
+            <div class="filters-container" id="filters-container-${groupId}">
+            </div>
+            
+            <button type="button" class="filters-btn filters-btn-outline-primary" data-action="click->filters-modal#addFilter" id="add-filter-${groupId}">
+              ➕ Adicionar filtro agrupado
+            </button>
+          </div>
         </div>
-        
-        <div class="filters-container" id="filters-container-${groupId}">
-        </div>
-        
-        <button type="button" class="filters-btn filters-btn-outline-primary" data-action="click->filters-modal#addFilter" id="add-filter-${groupId}">
-          ➕ Adicionar Filtro
-        </button>
       </div>
     `;
   }
@@ -630,7 +731,7 @@ export default class extends Controller {
           
           <div class="filters-filter-field">
             <button type="button" class="filters-btn filters-btn-outline-danger" data-action="click->filters-modal#removeFilter" id="remove-filter-${filterId}">
-              🗑️ Remover
+              🗑️
             </button>
           </div>
         </div>
@@ -652,6 +753,7 @@ export default class extends Controller {
         const match = key.match(/groups\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]/);
         if (match) {
           const [, groupId, type, filterId, field] = match;
+          
           if (!groups[groupId]) {
             groups[groupId] = { filter_operator: 'AND', filters: {} };
           }
@@ -666,13 +768,13 @@ export default class extends Controller {
         }
       }
     }
-    
+        
     Object.keys(groups).forEach(groupId => {
       const group = groups[groupId];
       const filters = Object.values(group.filters).filter(filter => 
         filter.field && filter.value && filter.operator
       );
-      
+            
       if (filters.length > 0) {
         const groupNumber = groupId.replace('group_', '');
         params[`groups[${groupNumber}][filter_operator]`] = group.filter_operator;
@@ -691,31 +793,36 @@ export default class extends Controller {
     const urlParams = new URLSearchParams(window.location.search);
     
     const groups = this.parseUrlGroups(urlParams);
-    
     if (Object.keys(groups).length === 0) {
       return;
     }
     
-    this.clearFilters();
+    this.clearFilters(false);
     
-    const groupOperator = urlParams.get('group_operator');
-    if (groupOperator) {
-      const groupOperatorSelect = this.element.querySelector('select[name="group_operator"]');
-      if (groupOperatorSelect) {
-        groupOperatorSelect.value = groupOperator;
-      }
-    }
+    this.groupCount = 1;
+    this.filterCounts = {};
     
-    Object.keys(groups).forEach((groupId, index) => {
-      const group = groups[groupId];
+    const processGroup = (groupId, group, index) => {
+      return new Promise((resolve) => {
+        this.filterCounts[groupId] = group.filters ? group.filters.length : 0;
       
       if (index > 0) {
-        this.addGroup();
+          this.addGroup(true);
       }
       
-      const groupElement = this.groupContainerTarget.querySelector(`[data-group-id="${groupId}"]`);
+        setTimeout(() => {
+          let groupElement = this.groupContainerTarget.querySelector(`[data-group-id="${groupId}"]`);
       
       if (!groupElement) {
+            groupElement = this.element.querySelector(`[data-group-id="${groupId}"]`);
+          }
+          
+          if (!groupElement) {
+            groupElement = document.getElementById(`group-${groupId}`);
+          }
+          
+          if (!groupElement) {
+            resolve();
         return;
       }
       
@@ -736,7 +843,43 @@ export default class extends Controller {
           }
         });
       }
-    });
+          
+          resolve();
+        }, 100 + (index * 50)); // Delay to load group
+      });
+    };
+    
+    const processAllGroups = async () => {
+      const groupIds = Object.keys(groups);
+      
+      for (let i = 0; i < groupIds.length; i++) {
+        const groupId = groupIds[i];
+        const group = groups[groupId];
+        await processGroup(groupId, group, i);
+      }
+      
+      const groupOperator = urlParams.get('group_operator');
+      if (groupOperator) {
+        const groupOperatorSelects = this.element.querySelectorAll('select[name*="group_operator_"]');
+        groupOperatorSelects.forEach((select, index) => {
+          select.value = groupOperator;
+          
+          if (index === 0) {
+            select.classList.remove('operator-disabled');
+            select.classList.add('operator-editable');
+            select.disabled = false;
+          } else {
+            select.classList.remove('operator-editable');
+            select.classList.add('operator-disabled');
+            select.disabled = true;
+          }
+        });
+      }
+      
+      this.updateButtonStates();
+    };
+    
+    processAllGroups();
   }
 
   parseUrlGroups(urlParams) {
@@ -807,7 +950,16 @@ export default class extends Controller {
     
     if (fieldSelect && filter.field) {
       fieldSelect.value = filter.field;
+      
       fieldSelect.dispatchEvent(new Event('change'));
+      
+    setTimeout(() => {
+      const valueInput = filterRow.querySelector('input[name*="[value]"], select[name*="[value]"]');
+      
+      if (valueInput && filter.value) {
+        valueInput.value = filter.value;
+      }
+      }, 150);
     }
     
     const operatorSelect = filterRow.querySelector('select[name*="[operator]"]');
@@ -815,14 +967,6 @@ export default class extends Controller {
     if (operatorSelect && filter.operator) {
       operatorSelect.value = filter.operator;
     }
-    
-    setTimeout(() => {
-      const valueInput = filterRow.querySelector('input[name*="[value]"], select[name*="[value]"]');
-      
-      if (valueInput && filter.value) {
-        valueInput.value = filter.value;
-      }
-    }, 100);
   }
 
   showLimitMessage(type, groupId = null) {
@@ -930,6 +1074,30 @@ export default class extends Controller {
         button.title = `Adicionar filtro (${this.filterCounts[groupId] || 0}/${this.maxFiltersPerGroupValue})`;
         this.clearLimitMessages('filters', groupId);
       }
+    });
+  }
+
+  getSelectedOperator() {
+    const firstGroupOperatorSelect = this.element.querySelector('select[name*="group_operator_"]');
+    if (firstGroupOperatorSelect) {
+      return firstGroupOperatorSelect.value;
+    }
+    return 'AND';
+  }
+
+  centerOperatorOptions() {
+    const operatorSelects = this.element.querySelectorAll('.filters-operator-select');
+    operatorSelects.forEach(select => {
+      const options = select.querySelectorAll('option');
+      options.forEach(option => {
+        option.style.textAlign = 'center';
+        option.style.textAlignLast = 'center';
+        option.style.padding = '8px 0';
+        option.style.margin = '0';
+        option.style.width = '100%';
+        option.style.display = 'block';
+        option.style.background = 'transparent';
+      });
     });
   }
 }

@@ -10,51 +10,54 @@
     </div>
 
     <form onsubmit="return false;">
-      <div class="filters-group-operator">
-        <label class="filters-label">Operador entre grupos:</label>
-        <select name="group_operator" class="filters-select" data-action="change->filters-modal#updateGroupOperator">
-          <option value="AND">E (AND)</option>
-          <option value="OR">OU (OR)</option>
-        </select>
-      </div>
-
-      <div data-filters-modal-target="groupContainer">
-        <div class="filters-group" data-group-id="group_1" id="group-group_1">
-          <div class="filters-group-header">
-            <h4 class="filters-group-title">📋 Grupo 1</h4>
+      <div class="filters-container">
+        <div class="filters-block" data-group-id="group_1">
+          <div class="filters-left-section">
+            <div class="filters-where-block">
+              <div class="filters-where-label">Onde</div>
+            </div>
           </div>
           
-          <div class="filters-group-operator-section">
-            <label class="filters-label">Operador entre filtros:</label>
-            <select name="groups[group_1][filter_operator]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-group_1">
-              <option value="AND">E (AND)</option>
-              <option value="OR">OU (OR)</option>
-            </select>
+          <div class="filters-right-section">
+            <div class="filters-group" data-group-id="group_1" id="group-group_1">
+              <div class="filters-group-header">
+                <h4 class="filters-group-title">Grupo 1</h4>
+              </div>
+              
+              <div class="filters-group-operator-section">
+                <label class="filters-label">Operador entre filtros:</label>
+                <select name="groups[group_1][filter_operator]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-group_1">
+                  <option value="AND">E</option>
+                  <option value="OR">OU</option>
+                </select>
+              </div>
+              
+              <div class="filters-container" id="filters-container-group_1">
+                <!-- Render filters -->
+              </div>
+              
+              <button type="button" class="filters-btn filters-btn-outline" data-action="click->filters-modal#addFilter" id="add-filter-group_1">
+                ➕ Adicionar filtro agrupado
+              </button>
+            </div>
           </div>
-          
-          <div class="filters-container" id="filters-container-group_1">
-            <!-- Render filters -->
-          </div>
-          
-          <button type="button" class="filters-btn filters-btn-outline" data-action="click->filters-modal#addFilter" id="add-filter-group_1">
-            ➕ Adicionar Filtro
-          </button>
+        </div>
+        
+        <div data-filters-modal-target="groupContainer">
+          <!-- Render blocks -->
         </div>
       </div>
 
       <div class="filters-actions">
         <div class="filters-actions-left">
           <button type="button" class="filters-btn filters-btn-success" data-action="click->filters-modal#addGroup">
-            ➕ Adicionar Grupo
-          </button>
-          <button type="button" class="filters-btn filters-btn-secondary" data-action="click->filters-modal#clearFilters">
-            🗑️ Limpar Filtros
+            ➕  Adicionar filtro
           </button>
         </div>
         
-        <div class="filters-actions-right">
-          <button type="button" class="filters-btn filters-btn-outline" data-action="click->filters-modal#closeModal">
-            Cancelar
+        <div class="filters-actions-right">          
+          <button type="button" class="filters-btn filters-btn-secondary" data-action="click->filters-modal#clearFilters">
+            Limpar Filtros
           </button>
           <button type="button" class="filters-btn filters-btn-primary" data-action="click->filters-modal#applyFilters">
            Aplicar Filtros

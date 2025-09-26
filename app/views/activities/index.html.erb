@@ -14,8 +14,8 @@
 <div class="flex-between mb-2">
   <%= link_to "Nova atividade", new_activity_path, class: "btn btn-primary" %>
 
-  <button data-action="click->filters-modal#openModal" class="btn btn-outline-primary">
-    🔽 Filtrar
+  <button data-action="click->filters-modal#openModal" class="btn btn-primary">
+    Filtrar
   </button>
 </div>
 
@@ -23,8 +23,8 @@
 <% if params[:groups].present? %>
   <div class="active-filters mb-3">
     <div class="active-filters-header">
-      <h4 class="active-filters-title">🎯 Filtros Ativos</h4>
-      <%= link_to "🗑️ Limpar Todos", activities_path, class: "btn btn-sm btn-outline-danger" %>
+      <h4 class="active-filters-title">Filtros Ativos</h4>
+      <%= link_to "Limpar Todos", activities_path, class: "btn btn-sm btn-outline-danger" %>
     </div>
     
     <div class="active-filters-list">
@@ -71,6 +71,7 @@
   </table>
 </div>
 
+<!-- Pagination -->
 <%= render 'shared/pagination' %>
 
 <!-- Filters Modal -->
