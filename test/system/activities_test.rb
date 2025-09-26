@@ -56,4 +56,24 @@ class ActivitiesTest < ApplicationSystemTestCase
 
     assert_text "Activity was successfully destroyed"
   end
+
+  test "should restore filters when reopening modal" do
+    visit activities_url
+
+    click_on "Filtrar"
+
+    select "Título", from: "Campo:"
+    select "Contém", from: "Operador:"
+    fill_in "Valor:", with: "teste"
+    
+    click_on "Aplicar Filtros"
+    
+    assert_selector ".active-filters"
+    
+    click_on "Filtrar"
+    
+    assert_field "Valor:", with: "teste"
+
+    click_on "Cancelar"
+  end
 end
