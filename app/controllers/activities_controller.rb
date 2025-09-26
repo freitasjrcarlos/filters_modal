@@ -6,11 +6,22 @@ class ActivitiesController < ApplicationController
 
   # GET /activities or /activities.json
   def index
-    @activities = Activity.apply_filters(filter_params).order(:start_date)
+    @per_page = 15
+    @page = params[:page].to_i.positive? ? params[:page].to_i : 1
+    @offset = (@page - 1) * @per_page
+    
+    all_activities = Activity.apply_filters(filter_params).order(:urgency, :start_date)
+    @total_count = all_activities.count
+    @activities = all_activities.limit(@per_page).offset(@offset)
+    
     @users = User.all
     @kinds = Activity::KINDS
     @urgencies = Activity::URGENCIES
     @table_columns = activity_table_columns
+    
+    @total_pages = (@total_count.to_f / @per_page).ceil
+    @has_previous = @page > 1
+    @has_next = @page < @total_pages
   end
 
   # GET /activities/1 or /activities/1.json
