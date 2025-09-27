@@ -28,20 +28,153 @@
     </div>
     
     <div class="active-filters-list">
-      <% params[:q].each do |key, value| %>
-        <% if value.present? %>
-          <% field_name = key.gsub(/_eq$|_not_eq$/, '') %>
-          <% operator = key.include?('_not_eq') ? 'not_eq' : 'eq' %>
-          <div class="filter-tag">
-            <span class="filter-tag-content">
-              <strong><%= get_field_display_name(field_name) %></strong>
-              <%= get_operator_display_name(operator) %>
-              <em>"<%= value %>"</em>
-            </span>
-            <%= link_to "×", activities_path, class: "filter-tag-remove" %>
-          </div>
-        <% end %>
-      <% end %>
+      <% 
+        # Ensure params[:q] is a hash for display purposes
+        q_params = params[:q]
+        if q_params.is_a?(String)
+          q_params = {}
+        elsif q_params.respond_to?(:to_unsafe_h)
+          q_params = q_params.to_unsafe_h
+        end
+        
+        if q_params && q_params[:g]
+          groups_hash = q_params[:g]
+          
+          if groups_hash["0"] && groups_hash["0"][:g]
+            nested_groups = groups_hash["0"][:g]
+            nested_groups.each_with_index do |(nested_index, nested_data), nested_idx|
+              if nested_idx > 0
+                %><span class="filter-group-operator">OU</span><%
+              end
+              
+              if nested_data[:c]
+                group_filters = []
+                nested_data[:c].each do |filter_index, filter_data|
+                  next if filter_index == 'm'
+                  
+                  if filter_data["a"] && filter_data["a"]["0"] && filter_data["a"]["0"]["name"]
+                    field_name = filter_data["a"]["0"]["name"]
+                    operator = filter_data["p"] || 'eq'
+                    value = filter_data["v"] && filter_data["v"]["0"] ? filter_data["v"]["0"]["value"] : ''
+                    
+                    if value.present?
+                      group_filters << {
+                        field: field_name,
+                        operator: operator,
+                        value: value,
+                        original_index: filter_index
+                      }
+                    end
+                  end
+                end
+                
+                if group_filters.any?
+                  group_filters.each_with_index do |filter, idx|
+                    if idx > 0
+                      %><span class="filter-group-operator">E</span><%
+                    end
+                    %>
+                    <div class="filter-tag">
+                      <span class="filter-tag-content">
+                        <strong><%= get_field_display_name(filter[:field]) %></strong>
+                        <%= get_operator_display_name(filter[:operator]) %>
+                        <em>"<%= filter[:value] %>"</em>
+                      </span>
+                      <%= link_to "×", remove_filter_url("0_#{nested_index}", filter[:original_index]), class: "filter-tag-remove" %>
+                    </div>
+                    <%
+                  end
+                end
+              end
+            end
+          else
+            groups_hash.each_with_index do |(group_index, group_data), group_idx|
+              group_operator = group_data[:m] || 'and'
+              group_operator_text = group_operator == 'or' ? 'OU' : 'E'
+              
+              if group_idx > 0
+                %><span class="filter-group-operator"><%= group_operator_text %></span><%
+              end
+              
+              if group_data[:c]
+                filter_operator = group_data[:c][:m] || 'and'
+                filter_operator_text = filter_operator == 'or' ? 'OU' : 'E'
+                
+                group_filters = []
+                group_data[:c].each do |filter_index, filter_data|
+                  next if filter_index == 'm'
+                  
+                  if filter_data["a"] && filter_data["a"]["0"] && filter_data["a"]["0"]["name"]
+                    field_name = filter_data["a"]["0"]["name"]
+                    operator = filter_data["p"] || 'eq'
+                    value = filter_data["v"] && filter_data["v"]["0"] ? filter_data["v"]["0"]["value"] : ''
+                    
+                    if value.present?
+                      group_filters << {
+                        field: field_name,
+                        operator: operator,
+                        value: value,
+                        original_index: filter_index
+                      }
+                    end
+                  end
+                end
+                
+                if group_filters.any?
+                  group_filters.each_with_index do |filter, idx|
+                    if idx > 0
+                      %><span class="filter-group-operator"><%= filter_operator_text %></span><%
+                    end
+                    %>
+                    <div class="filter-tag">
+                      <span class="filter-tag-content">
+                        <strong><%= get_field_display_name(filter[:field]) %></strong>
+                        <%= get_operator_display_name(filter[:operator]) %>
+                        <em>"<%= filter[:value] %>"</em>
+                      </span>
+                      <%= link_to "×", remove_filter_url(group_index, filter[:original_index]), class: "filter-tag-remove" %>
+                    </div>
+                    <%
+                  end
+                end
+              end
+            end
+          end
+        else
+          q_params.each do |key, value|
+            if value.present? && !key.start_with?('g[') && !key.start_with?('s')
+              field_name = key.gsub(/_eq$|_not_eq$|_cont$|_not_cont$|_gt$|_gteq$|_lt$|_lteq$|_in$|_not_in$/, '')
+              operator = case key
+                        when /_not_eq$/ then 'not_eq'
+                        when /_cont$/ then 'cont'
+                        when /_not_cont$/ then 'not_cont'
+                        when /_gt$/ then 'gt'
+                        when /_gteq$/ then 'gteq'
+                        when /_lt$/ then 'lt'
+                        when /_lteq$/ then 'lteq'
+                        when /_in$/ then 'in'
+                        when /_not_in$/ then 'not_in'
+                        else 'eq'
+                        end
+              %>
+              <div class="filter-tag">
+                <span class="filter-tag-content">
+                  <strong><%= get_field_display_name(field_name) %></strong>
+                  <%= get_operator_display_name(operator) %>
+                  <em>"<%= value %>"</em>
+                </span>
+                <% 
+                  new_params = q_params.dup
+                  new_params.delete(key)
+                  remove_url = new_params.any? ? activities_path(q: new_params) : activities_path
+                %>
+                <%= link_to "×", remove_url, class: "filter-tag-remove" %>
+              </div>
+              <%
+            end
+          end
+        end
+      %>
     </div>
   </div>
 <% end %>

@@ -19,6 +19,12 @@
             <div class="filters-where-block">
               <div class="filters-where-label">Onde</div>
             </div>
+            <div class="filters-operator-block" id="operator-block-group_1" style="display: none;">
+              <select name="q[g][0][m]" class="filters-operator-select operator-editable" data-action="change->filters-modal#updateGroupOperator">
+                <option value="and">E</option>
+                <option value="or">OU</option>
+              </select>
+            </div>
           </div>
           
           <div class="filters-right-section">
@@ -29,7 +35,7 @@
               
               <div class="filters-group-operator-section">
                 <label class="filters-label">Operador entre filtros:</label>
-                <select name="q[g][0][m]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-group_1">
+                <select name="q[g][0][c][m]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-group_1">
                   <option value="and">E</option>
                   <option value="or">OU</option>
                 </select>

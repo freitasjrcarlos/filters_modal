@@ -151,9 +151,75 @@ module ActivitiesHelper
   # Retorna o nome amigável do operador para exibição
   def get_operator_display_name(operator)
     operator_names = {
-      'equals' => '=',
-      'not_equals' => '≠'
+      'eq' => '=',
+      'not_eq' => '≠',
+      'cont' => 'contém',
+      'not_cont' => 'não contém',
+      'gt' => '>',
+      'gteq' => '>=',
+      'lt' => '<',
+      'lteq' => '<=',
+      'in' => 'em',
+      'not_in' => 'não em'
     }
     operator_names[operator] || operator
+  end
+
+  # Gera URL para remover um filtro específico
+  def remove_filter_url(group_index, filter_index)
+    q_params = params[:q]
+    if q_params.is_a?(String)
+      q_params = {}
+    elsif q_params.respond_to?(:to_unsafe_h)
+      q_params = q_params.to_unsafe_h
+    end
+    current_params = q_params || {}
+    
+    # Handle nested structure (q[g][0][g][0], q[g][0][g][1])
+    if group_index.to_s.include?('_')
+      # Format: "0_0" or "0_1" for nested groups
+      main_group, nested_group = group_index.to_s.split('_')
+      
+      if current_params[:g] && current_params[:g][main_group] && current_params[:g][main_group][:g] && current_params[:g][main_group][:g][nested_group]
+        new_params = current_params.deep_dup
+        new_params[:g][main_group][:g][nested_group][:c].delete(filter_index)
+        
+        # If no more filters in this nested group, remove the nested group
+        if new_params[:g][main_group][:g][nested_group][:c].empty?
+          new_params[:g][main_group][:g].delete(nested_group)
+        end
+        
+        # If no more nested groups, remove the main group
+        if new_params[:g][main_group][:g].empty?
+          new_params[:g].delete(main_group)
+        end
+        
+        # If no more groups, remove the g key
+        if new_params[:g].empty?
+          new_params.delete(:g)
+        end
+        
+        activities_path(q: new_params)
+      else
+        activities_path
+      end
+    else
+      if current_params[:g] && current_params[:g][group_index]
+        new_params = current_params.deep_dup
+        new_params[:g][group_index][:c].delete(filter_index)
+        
+        if new_params[:g][group_index][:c].empty?
+          new_params[:g].delete(group_index)
+        end
+        
+        if new_params[:g].empty?
+          new_params.delete(:g)
+        end
+        
+        activities_path(q: new_params)
+      else
+        activities_path
+      end
+    end
   end
 end

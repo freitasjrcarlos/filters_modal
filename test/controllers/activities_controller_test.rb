@@ -45,4 +45,105 @@ class ActivitiesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to activities_url
   end
+
+  test "should handle complex ransack parameters without with_indifferent_access error" do
+    # Test the new correct structure (single group with two filters)
+    complex_params = {
+      q: {
+        g: {
+          "0" => {
+            title_eq: "Atividade 53",
+            status_eq: "true",
+            m: "and"
+          }
+        }
+      }
+    }
+
+    # This should not raise a NoMethodError
+    assert_nothing_raised do
+      get activities_url, params: complex_params
+    end
+
+    assert_response :success
+  end
+
+  test "should apply filters correctly" do
+    # Create test activities
+    activity1 = Activity.create!(
+      title: "Atividade 53",
+      description: "Test description",
+      status: true,
+      start_date: Date.current,
+      end_date: Date.current + 1.week,
+      kind: 1,
+      completed_percent: 50,
+      priority: 1,
+      urgency: 1,
+      points: 5,
+      user_id: 1
+    )
+    
+    activity2 = Activity.create!(
+      title: "Atividade 59",
+      description: "Test description",
+      status: false,
+      start_date: Date.current,
+      end_date: Date.current + 1.week,
+      kind: 1,
+      completed_percent: 50,
+      priority: 1,
+      urgency: 1,
+      points: 5,
+      user_id: 1
+    )
+
+    # Test filter parameters with correct structure
+    filter_params = {
+      q: {
+        g: {
+          "0" => {
+            title_eq: "Atividade 53",
+            status_eq: "true",
+            m: "and"
+          }
+        }
+      }
+    }
+
+    get activities_url, params: filter_params
+    assert_response :success
+    
+    # Should only return activity1 (matches both title and status)
+    assert_select "tbody tr", count: 1
+    assert_select "tbody tr td", text: "Atividade 53"
+  end
+
+  test "should handle multiple group ransack parameters without with_indifferent_access error" do
+    # Test multiple groups with correct structure
+    multi_group_params = {
+      q: {
+        g: {
+          "0" => {
+            title_eq: "Atividade 53",
+            status_eq: "true",
+            m: "and"
+          },
+          "1" => {
+            title_eq: "Atividade 59",
+            status_eq: "true", 
+            m: "and"
+          }
+        },
+        m: "or"
+      }
+    }
+
+    # This should not raise a NoMethodError
+    assert_nothing_raised do
+      get activities_url, params: multi_group_params
+    end
+
+    assert_response :success
+  end
 end

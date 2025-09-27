@@ -10,8 +10,35 @@ class ActivitiesController < ApplicationController
     @page = params[:page].to_i.positive? ? params[:page].to_i : 1
     @offset = (@page - 1) * @per_page
     
-    # Ransack Config
-    @q = Activity.ransack(params[:q])
+    # Ransack Config - Handle parameters safely
+    ransack_params = params[:q]
+    
+    # Convert to a clean hash structure
+    if ransack_params.present?
+      begin
+        # Convert ActionController::Parameters to regular hash
+        if ransack_params.respond_to?(:to_unsafe_h)
+          clean_params = ransack_params.to_unsafe_h
+        elsif ransack_params.is_a?(Hash)
+          clean_params = ransack_params.deep_dup
+        else
+          clean_params = ransack_params
+        end
+        
+        Rails.logger.debug "Ransack params: #{clean_params.inspect}"
+        
+        @q = Activity.ransack(clean_params)
+        
+        # Debug: Log the generated SQL query
+        Rails.logger.debug "Ransack SQL: #{@q.result.to_sql}"
+      rescue => e
+        Rails.logger.error "Ransack parameter error: #{e.message}"
+        Rails.logger.error "Original params: #{ransack_params.inspect}"
+        @q = Activity.ransack({})
+      end
+    else
+      @q = Activity.ransack({})
+    end
     @q.sorts = ['urgency asc', 'start_date asc'] if @q.sorts.empty?
     
     all_activities = @q.result.includes(:user)
@@ -96,4 +123,6 @@ class ActivitiesController < ApplicationController
     def activity_params
       params.expect(activity: [ :title, :description, :status, :start_date, :end_date, :kind, :completed_percent, :priority, :urgency, :points, :user_id ])
     end
+
+
 end

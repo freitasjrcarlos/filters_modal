@@ -39,20 +39,7 @@ export default class extends Controller {
     this.handleKeydown = this.handleKeydown.bind(this);
     document.addEventListener('keydown', this.handleKeydown);
     
-    setTimeout(() => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const hasFilters = Array.from(urlParams.entries()).some(([key, value]) => 
-        key.startsWith('q[') && value
-      );
-      
-      if (!hasFilters) {
-        const groupElement = document.getElementById('group-group_1');
-        if (groupElement) {
-          this.addFilterToGroup(groupElement);
-        }
-      }
-    }, 100);
-  }
+}
 
   disconnect() {
     document.removeEventListener('keydown', this.handleKeydown);
@@ -154,6 +141,7 @@ export default class extends Controller {
       }
     }
 
+    this.updateOperatorsVisibility();
     this.updateButtonStates();
   }
 
@@ -183,6 +171,7 @@ export default class extends Controller {
     delete this.filterCounts[groupId];
     this.groupCount--;
     
+    this.updateOperatorsVisibility();
     this.updateButtonStates();
   }
 
@@ -257,6 +246,29 @@ export default class extends Controller {
     filterOperators.forEach(select => {
       select.value = operator;
     });
+  }
+
+  updateGroupOperator(event) {
+    const operator = event.target.value;
+    const groupBlock = event.target.closest('.filters-block');
+    const groupId = groupBlock.dataset.groupId;
+    
+    const groupOperatorSelect = groupBlock.querySelector('.filters-operator-select');
+    if (groupOperatorSelect) {
+      groupOperatorSelect.value = operator;
+    }
+    
+    if (groupId === 'group_2') {
+      const allOperatorDisplays = this.element.querySelectorAll('.operator-readonly .operator-text');
+      allOperatorDisplays.forEach(display => {
+        display.textContent = operator === 'and' ? 'E' : 'OU';
+      });
+      
+      const firstGroupOperator = this.element.querySelector('#operator-block-group_1 .filters-operator-select');
+      if (firstGroupOperator) {
+        firstGroupOperator.value = operator;
+      }
+    }
   }
 
   updateFilterField(event) {
@@ -415,6 +427,7 @@ export default class extends Controller {
     }
     
     this.clearValidationError();
+    this.updateOperatorsVisibility();
     this.updateButtonStates();
   }
 
@@ -432,15 +445,31 @@ export default class extends Controller {
 
   createGroupHtml(groupId) {
     const groupIndex = this.groupCount - 1;
+    const isFirstGroup = groupId === 'group_1';
+    const isSecondGroup = groupId === 'group_2';
+    
+    const currentOperator = this.getCurrentGroupOperator();
+    const operatorText = currentOperator === 'and' ? 'E' : 'OU';
+    
+    const operatorSelectHtml = isFirstGroup 
+      ? `<select name="q[g][${groupIndex}][m]" class="filters-operator-select operator-editable" data-action="change->filters-modal#updateGroupOperator">
+           <option value="and" ${currentOperator === 'and' ? 'selected' : ''}>E</option>
+           <option value="or" ${currentOperator === 'or' ? 'selected' : ''}>OU</option>
+         </select>`
+      : isSecondGroup
+      ? `<select name="q[g][${groupIndex}][m]" class="filters-operator-select operator-editable" data-action="change->filters-modal#updateGroupOperator">
+           <option value="and" ${currentOperator === 'and' ? 'selected' : ''}>E</option>
+           <option value="or" ${currentOperator === 'or' ? 'selected' : ''}>OU</option>
+         </select>`
+      : `<div class="filters-operator-display operator-readonly">
+           <span class="operator-text">${operatorText}</span>
+         </div>`;
     
     return `
       <div class="filters-block" data-group-id="${groupId}">
         <div class="filters-left-section">
-          <div class="filters-operator-block" id="operator-block-${groupId}">
-            <select name="q[g][${groupIndex}][m]" class="filters-operator-select operator-editable" data-action="change->filters-modal#updateGroupOperator">
-              <option value="and">E</option>
-              <option value="or">OU</option>
-            </select>
+          <div class="filters-operator-block" id="operator-block-${groupId}" style="display: none;">
+            ${operatorSelectHtml}
           </div>
         </div>
         
@@ -455,7 +484,7 @@ export default class extends Controller {
             
             <div class="filters-group-operator-section">
               <label class="filters-label">Operador entre filtros:</label>
-              <select name="q[g][${groupIndex}][m]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-${groupId}">
+              <select name="q[g][${groupIndex}][c][m]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-${groupId}">
                 <option value="and">E (AND)</option>
                 <option value="or">OU (OR)</option>
               </select>
@@ -598,6 +627,43 @@ export default class extends Controller {
     existingMessages.forEach(message => message.remove());
   }
 
+  getCurrentGroupOperator() {
+    const group2Operator = this.element.querySelector('#operator-block-group_2 .filters-operator-select');
+    if (group2Operator) {
+      return group2Operator.value;
+    }
+    
+    const group1Operator = this.element.querySelector('#operator-block-group_1 .filters-operator-select');
+    if (group1Operator) {
+      return group1Operator.value;
+    }
+    
+    return 'and';
+  }
+
+  updateOperatorsVisibility() {
+    const operatorBlocks = this.element.querySelectorAll('.filters-operator-block');
+    
+    operatorBlocks.forEach(block => {
+      const groupId = block.id.replace('operator-block-', '');
+      const isFirstGroup = groupId === 'group_1';
+      const isSecondGroup = groupId === 'group_2';
+      
+      if (this.groupCount >= 2 && !isFirstGroup) {
+        block.style.display = 'flex';
+        
+        if (isSecondGroup) {
+          const select = block.querySelector('.filters-operator-select');
+          const display = block.querySelector('.filters-operator-display');
+          if (select) select.style.display = 'block';
+          if (display) display.style.display = 'none';
+        }
+      } else {
+        block.style.display = 'none';
+      }
+    });
+  }
+
   updateButtonStates() {
     this.updateAddGroupButton();
     this.updateAddFilterButtons();
@@ -722,45 +788,123 @@ export default class extends Controller {
 
   buildFilterParams() {
     const params = {};
-    const filterGroups = {};
+    const groups = {};
     
-    const filterRows = this.element.querySelectorAll('.filters-filter-row');
-    console.log('Total de filtros encontrados:', filterRows.length);
+    // Find all filter groups
+    const groupElements = this.element.querySelectorAll('[id^="group-"]');
     
-    filterRows.forEach((filterRow, index) => {
-      const fieldSelect = filterRow.querySelector('select[data-action*="updateFilterField"]');
-      const operatorSelect = filterRow.querySelector('select[id*="operator"]');
-      const valueInput = filterRow.querySelector('input[id*="value"]');
-      const valueSelect = filterRow.querySelector('select[id*="value"]');
+    groupElements.forEach((groupElement, groupIndex) => {
+      const groupId = groupElement.id.replace('group-', '');
       
-      const valueElement = valueInput || valueSelect;
+      const groupBlock = groupElement.closest('.filters-block');
+      const groupOperator = groupBlock.querySelector('.filters-operator-select')?.value || 'and';
       
-      if (fieldSelect && operatorSelect && valueElement) {
-        const field = fieldSelect.value;
-        const operator = operatorSelect.value;
-        const value = valueElement.value.trim();
+      const filterOperator = groupElement.querySelector('.filter-operator')?.value || 'and';
+      
+      const filterRows = groupElement.querySelectorAll('.filters-filter-row');
+      const groupFilters = [];
+      
+      filterRows.forEach((filterRow) => {
+        const fieldSelect = filterRow.querySelector('select[data-action*="updateFilterField"]');
+        const operatorSelect = filterRow.querySelector('select[id*="operator"]');
+        const valueInput = filterRow.querySelector('input[id*="value"]');
+        const valueSelect = filterRow.querySelector('select[id*="value"]');
         
-        if (field && operator && value) {
-          const paramName = `${field}_${operator}`;
+        const valueElement = valueInput || valueSelect;
+        
+        if (fieldSelect && operatorSelect && valueElement) {
+          const field = fieldSelect.value;
+          const operator = operatorSelect.value;
+          const value = valueElement.value.trim();
           
-          if (!filterGroups[paramName]) {
-            filterGroups[paramName] = [];
+          if (field && operator && value) {
+            groupFilters.push({
+              field: field,
+              operator: operator,
+              value: value
+            });
           }
-          filterGroups[paramName].push(value);
         }
+      });
+      
+      if (groupFilters.length > 0) {
+        groups[groupIndex] = {
+          groupOperator: groupOperator,
+          filterOperator: filterOperator,
+          filters: groupFilters
+        };
       }
     });
     
-    Object.keys(filterGroups).forEach(paramName => {
-      const values = filterGroups[paramName];
-      if (values.length === 1) {
-        params[`q[${paramName}]`] = values[0];
-      } else {
-        values.forEach((value, index) => {
-          params[`q[${paramName}][${index}]`] = value;
+    // Build Ransack group parameters using the correct structure
+    const groupKeys = Object.keys(groups);
+    
+    if (groupKeys.length > 0) {
+      // Check if we need OR between groups
+      const hasOrBetweenGroups = groupKeys.some(key => groups[key].groupOperator === 'or');
+      
+      groupKeys.forEach((groupIndex, index) => {
+        const group = groups[groupIndex];
+        
+        // Check if we have multiple filters with the same field in this group
+        const fieldCounts = {};
+        group.filters.forEach(filter => {
+          fieldCounts[filter.field] = (fieldCounts[filter.field] || 0) + 1;
         });
+        
+        const hasMultipleSameField = Object.values(fieldCounts).some(count => count > 1);
+        
+        if (hasMultipleSameField) {
+          // Use Ransack groupings structure for multiple filters with same field
+          group.filters.forEach((filter, filterIndex) => {
+            params[`q[groupings][${filterIndex}][${filter.field}_${filter.operator}]`] = filter.value;
+          });
+          
+          // Add the operator between groupings
+          if (group.filters.length > 1) {
+            params['q[m]'] = group.filterOperator;
+          }
+        } else {
+          // Use the simple structure for filters with different fields
+          group.filters.forEach((filter, filterIndex) => {
+            const paramKey = `q[g][${index}][${filter.field}_${filter.operator}]`;
+            params[paramKey] = filter.value;
+          });
+          
+          // Add the group operator (m) for this group
+          if (group.filters.length > 1) {
+            params[`q[g][${index}][m]`] = group.filterOperator;
+          }
+        }
+      });
+      
+      // Add the operator between groups if we have multiple groups
+      if (groupKeys.length > 1) {
+        params['q[m]'] = hasOrBetweenGroups ? 'or' : 'and';
       }
-    });
+    }
+    
+    if (Object.keys(groups).length === 0) {
+      const filterRows = this.element.querySelectorAll('.filters-filter-row');
+      filterRows.forEach((filterRow, index) => {
+        const fieldSelect = filterRow.querySelector('select[data-action*="updateFilterField"]');
+        const operatorSelect = filterRow.querySelector('select[id*="operator"]');
+        const valueInput = filterRow.querySelector('input[id*="value"]');
+        const valueSelect = filterRow.querySelector('select[id*="value"]');
+        
+        const valueElement = valueInput || valueSelect;
+        
+        if (fieldSelect && operatorSelect && valueElement) {
+          const field = fieldSelect.value;
+          const operator = operatorSelect.value;
+          const value = valueElement.value.trim();
+          
+          if (field && operator && value) {
+            params[`q[${field}_${operator}]`] = value;
+          }
+        }
+      });
+    }
     
     return params;
   }
