@@ -10,7 +10,11 @@ class ActivitiesController < ApplicationController
     @page = params[:page].to_i.positive? ? params[:page].to_i : 1
     @offset = (@page - 1) * @per_page
     
-    all_activities = Activity.apply_filters(filter_params).order(:urgency, :start_date)
+    # Ransack Config
+    @q = Activity.ransack(params[:q])
+    @q.sorts = ['urgency asc', 'start_date asc'] if @q.sorts.empty?
+    
+    all_activities = @q.result.includes(:user)
     @total_count = all_activities.count
     @activities = all_activities.limit(@per_page).offset(@offset)
     
@@ -79,51 +83,7 @@ class ActivitiesController < ApplicationController
 
   # DELETE /remove_filter or /remove_filter.json
   def remove_filter
-    group_id = params[:group_id]
-    filter_id = params[:filter_id]
-
-    referer_url = request.referer
-    
-    if referer_url.blank?
-      redirect_to activities_path, alert: "Erro: URL de referência não encontrada"
-      return
-    end
-
-    referer_uri = URI.parse(referer_url)
-    current_params = Rack::Utils.parse_query(referer_uri.query).with_indifferent_access
-    
-    new_params = current_params.deep_dup
-    
-    filter_removed = false
-    
-    new_params.each do |key, value|
-      if key.start_with?("groups[#{group_id}][filters]") && key.include?("[#{filter_id}]")
-        Rails.logger.info "Filtro encontrado! Removendo: #{key}"
-        new_params.delete(key)
-        filter_removed = true
-      end
-    end
-    
-    if filter_removed
-      group_has_filters = new_params.keys.any? { |key| key.start_with?("groups[#{group_id}][filters]") }
-      
-      if !group_has_filters
-        new_params.delete("groups[#{group_id}][filter_operator]")
-      end
-      
-      has_any_groups = new_params.keys.any? { |key| key.start_with?("groups[") }
-      
-      if !has_any_groups
-        new_params.delete("group_operator")
-      end
-    else
-      Rails.logger.warn "Filtro não encontrado! group_id: #{group_id}, filter_id: #{filter_id}"
-    end
-    
-    respond_to do |format|
-      format.html { redirect_to activities_path(new_params), notice: "Filtro removido com sucesso!" }
-      format.json { render json: { status: 'success', message: 'Filtro removido com sucesso!', redirect_url: activities_path(new_params) } }
-    end
+    redirect_to activities_path, notice: "Filtro removido com sucesso!"
   end
 
   private
@@ -135,23 +95,5 @@ class ActivitiesController < ApplicationController
     # Only allow a list of trusted parameters through.
     def activity_params
       params.expect(activity: [ :title, :description, :status, :start_date, :end_date, :kind, :completed_percent, :priority, :urgency, :points, :user_id ])
-    end
-
-    def filter_params
-      params.permit(
-        :group_operator,
-        groups: {}
-      ).tap do |permitted|
-        if permitted[:groups].present?
-          permitted[:groups].each do |group_id, group_params|
-            group_params.permit(:filter_operator, filters: {})
-            if group_params[:filters].present?
-              group_params[:filters].each do |filter_id, filter_params|
-                filter_params.permit(:field, :operator, :value)
-              end
-            end
-          end
-        end
-      end
     end
 end

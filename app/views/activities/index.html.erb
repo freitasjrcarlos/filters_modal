@@ -20,7 +20,7 @@
 </div>
 
 <!-- Active filters -->
-<% if params[:groups].present? %>
+<% if params[:q].present? %>
   <div class="active-filters mb-3">
     <div class="active-filters-header">
       <h4 class="active-filters-title">Filtros Ativos</h4>
@@ -28,27 +28,17 @@
     </div>
     
     <div class="active-filters-list">
-      <% params[:groups].each do |group_id, group| %>
-        <% if group[:filters].present? %>
-          <div class="filter-group">
-            <span class="filter-group-label">Grupo <%= group_id %>:</span>
-            <% group[:filters].each do |filter_id, filter| %>
-              <% if filter[:field].present? && filter[:value].present? %>
-                <div class="filter-tag">
-                  <span class="filter-tag-content">
-                    <strong><%= get_field_display_name(filter[:field]) %></strong>
-                    <%= get_operator_display_name(filter[:operator]) %>
-                    <em>"<%= filter[:value] %>"</em>
-                  </span>
-                  <%= button_to "×", remove_filter_path, 
-                      method: :delete,
-                      params: { group_id: group_id, filter_id: filter_id },
-                      class: "filter-tag-remove", 
-                      data: { confirm: "Remover este filtro?" },
-                      form_class: "filter-remove-form" %>
-                </div>
-              <% end %>
-            <% end %>
+      <% params[:q].each do |key, value| %>
+        <% if value.present? %>
+          <% field_name = key.gsub(/_eq$|_not_eq$/, '') %>
+          <% operator = key.include?('_not_eq') ? 'not_eq' : 'eq' %>
+          <div class="filter-tag">
+            <span class="filter-tag-content">
+              <strong><%= get_field_display_name(field_name) %></strong>
+              <%= get_operator_display_name(operator) %>
+              <em>"<%= value %>"</em>
+            </span>
+            <%= link_to "×", activities_path, class: "filter-tag-remove" %>
           </div>
         <% end %>
       <% end %>

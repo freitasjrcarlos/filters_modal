@@ -9,8 +9,11 @@
       </button>
     </div>
 
-    <form onsubmit="return false;">
+    <%= search_form_for @q, url: activities_path, method: :get, local: true, 
+        data: { controller: "filters-modal" } do |f| %>
+      
       <div class="filters-container">
+        <!-- Grupo 1 -->
         <div class="filters-block" data-group-id="group_1">
           <div class="filters-left-section">
             <div class="filters-where-block">
@@ -21,22 +24,22 @@
           <div class="filters-right-section">
             <div class="filters-group" data-group-id="group_1" id="group-group_1">
               <div class="filters-group-header">
-                <h4 class="filters-group-title">Grupo 1</h4>
+                <h4 class="filters-group-title">📋 Grupo 1</h4>
               </div>
               
               <div class="filters-group-operator-section">
                 <label class="filters-label">Operador entre filtros:</label>
-                <select name="groups[group_1][filter_operator]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-group_1">
-                  <option value="AND">E</option>
-                  <option value="OR">OU</option>
+                <select name="q[g][0][m]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-group_1">
+                  <option value="and">E</option>
+                  <option value="or">OU</option>
                 </select>
               </div>
               
               <div class="filters-container" id="filters-container-group_1">
-                <!-- Render filters -->
+                <!-- Render Filters -->
               </div>
               
-              <button type="button" class="filters-btn filters-btn-outline" data-action="click->filters-modal#addFilter" id="add-filter-group_1">
+              <button type="button" class="filters-btn filters-btn-outline-primary" data-action="click->filters-modal#addFilter" id="add-filter-group_1">
                 ➕ Adicionar filtro agrupado
               </button>
             </div>
@@ -44,7 +47,7 @@
         </div>
         
         <div data-filters-modal-target="groupContainer">
-          <!-- Render blocks -->
+          <!-- Render Groups -->
         </div>
       </div>
 
@@ -64,6 +67,11 @@
           </button>
         </div>
       </div>
-    </form>
+    <% end %>
   </div>
 </div>
+
+<!-- User Data for JavaScript -->
+<script type="application/json" id="users-data">
+  <%= @users.map { |u| { id: u.id, name: u.name } }.to_json.html_safe %>
+</script>

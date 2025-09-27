@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static targets = ["modal", "groupContainer", "filterContainer"];
+  static targets = ["modal", "groupContainer"];
   static values = { 
     maxGroups: Number,
     maxFiltersPerGroup: Number 
@@ -42,7 +42,7 @@ export default class extends Controller {
     setTimeout(() => {
       const urlParams = new URLSearchParams(window.location.search);
       const hasFilters = Array.from(urlParams.entries()).some(([key, value]) => 
-        key.startsWith('groups[') && value
+        key.startsWith('q[') && value
       );
       
       if (!hasFilters) {
@@ -112,13 +112,14 @@ export default class extends Controller {
     const allParams = Array.from(urlParams.entries());
     
     const hasFilters = allParams.some(([key, value]) => 
-      key.startsWith('groups[') && value
+      key.startsWith('q[') && value
     );
     
     if (hasFilters) {
       this.restoreFiltersFromUrl();
     } else {
-    this.updateButtonStates();
+      this.addFilter();
+      this.updateButtonStates();
     }
   }
 
@@ -222,9 +223,8 @@ export default class extends Controller {
     if (!filterElement || !groupElement) return;
     
     const { groupId, filterId } = this.extractFilterIds(filterElement, groupElement);
-    const hasAppliedFilters = this.hasAppliedFilters();
     
-    this.executeFilterRemoval(filterElement, groupId, filterId, hasAppliedFilters);
+    this.executeFilterRemoval(filterElement, groupId, filterId);
   }
 
   getFilterElements(event) {
@@ -239,22 +239,7 @@ export default class extends Controller {
     return { groupId, filterId };
   }
 
-  hasAppliedFilters() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return Array.from(urlParams.entries()).some(([key, value]) => 
-      key.startsWith('groups[') && value
-    );
-  }
-
-  executeFilterRemoval(filterElement, groupId, filterId, hasAppliedFilters) {
-    const removalMethod = hasAppliedFilters 
-      ? () => this.removeFilterFromBackend(groupId, filterId)
-      : () => this.removeFilterLocally(filterElement, groupId);
-    
-    removalMethod();
-  }
-
-  removeFilterLocally(filterElement, groupId) {
+  executeFilterRemoval(filterElement, groupId, filterId) {
     filterElement.remove();
     
     if (this.filterCounts[groupId]) {
@@ -262,72 +247,6 @@ export default class extends Controller {
     }
     
     this.updateButtonStates();
-  }
-
-  removeFilterFromBackend(groupId, filterId) {
-    const groupNumber = groupId.replace('group_', '');
-    
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/remove_filter';
-    
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = 'authenticity_token';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
-    }
-    
-    const methodInput = document.createElement('input');
-    methodInput.type = 'hidden';
-    methodInput.name = '_method';
-    methodInput.value = 'delete';
-    form.appendChild(methodInput);
-    
-    const groupIdInput = document.createElement('input');
-    groupIdInput.type = 'hidden';
-    groupIdInput.name = 'group_id';
-    groupIdInput.value = groupNumber;
-    form.appendChild(groupIdInput);
-    
-    const filterIdInput = document.createElement('input');
-    filterIdInput.type = 'hidden';
-    filterIdInput.name = 'filter_id';
-    filterIdInput.value = filterId;
-    form.appendChild(filterIdInput);
-    
-    document.body.appendChild(form);
-    form.submit();
-  }
-
-  updateGroupOperator(event) {
-    const operator = event.target.value;
-    
-    const allGroupOperatorSelects = this.element.querySelectorAll('select[name*="group_operator_"]');
-    allGroupOperatorSelects.forEach((select, index) => {
-      select.value = operator;
-      
-      if (index === 0) {
-        select.classList.remove('operator-disabled');
-        select.classList.add('operator-editable');
-        select.disabled = false;
-      } else {
-        select.classList.remove('operator-editable');
-        select.classList.add('operator-disabled');
-        select.disabled = true;
-      }
-    });
-    
-    const groupElements = this.groupContainerTarget.querySelectorAll('.filters-group');
-    groupElements.forEach(group => {
-      const operatorSelect = group.querySelector('.group-operator');
-      if (operatorSelect) {
-        operatorSelect.value = operator;
-        operatorSelect.disabled = true;
-      }
-    });
   }
 
   updateFilterOperator(event) {
@@ -379,9 +298,6 @@ export default class extends Controller {
   }
 
   renderSelectField(container, field, filterRow) {
-    const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
-                 filterRow.querySelector('select[name*="[value]"]')?.name;
-    
     const existingValue = container.querySelector('input, select')?.value || '';
     
     let options = '';
@@ -406,7 +322,7 @@ export default class extends Controller {
     }
     
     const selectHtml = `
-      <select name="${name}" class="filters-select">
+      <select class="filters-select" id="value-${filterRow.id.replace('filter-row-', '')}">
         <option value="">Selecione...</option>
         ${options}
       </select>
@@ -423,13 +339,10 @@ export default class extends Controller {
   }
 
   renderBooleanField(container, filterRow) {
-    const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
-                 filterRow.querySelector('select[name*="[value]"]')?.name;
-    
     const existingValue = container.querySelector('input, select')?.value || '';
     
     container.innerHTML = `
-      <select name="${name}" class="filters-select">
+      <select class="filters-select" id="value-${filterRow.id.replace('filter-row-', '')}">
         <option value="">Selecione...</option>
         <option value="true">Ativo</option>
         <option value="false">Inativo</option>
@@ -445,13 +358,10 @@ export default class extends Controller {
   }
 
   renderDateField(container, filterRow) {
-    const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
-                 filterRow.querySelector('select[name*="[value]"]')?.name;
-    
     const existingValue = container.querySelector('input, select')?.value || '';
     
     container.innerHTML = `
-      <input type="date" name="${name}" class="filters-select">
+      <input type="date" class="filters-select" id="value-${filterRow.id.replace('filter-row-', '')}">
     `;
     
     if (existingValue) {
@@ -463,13 +373,10 @@ export default class extends Controller {
   }
 
   renderTextField(container, filterRow) {
-    const name = filterRow.querySelector('input[name*="[value]"]')?.name || 
-                 filterRow.querySelector('select[name*="[value]"]')?.name;
-    
     const existingValue = container.querySelector('input, select')?.value || '';
     
     container.innerHTML = `
-      <input type="text" name="${name}" class="filters-select">
+      <input type="text" class="filters-select" id="value-${filterRow.id.replace('filter-row-', '')}" placeholder="Digite o valor...">
     `;
     
     if (existingValue) {
@@ -477,146 +384,6 @@ export default class extends Controller {
       if (newInput) {
         newInput.value = existingValue;
       }
-    }
-  }
-
-  applyFilters() {
-    if (!this.validateFilters()) {
-      return;
-    }
-    
-    const form = this.element.querySelector('form');
-    const formData = new FormData(form);
-    
-    const filterParams = this.buildFilterParams(formData);
-    
-    const url = new URL(window.location);
-    url.search = new URLSearchParams(filterParams).toString();
-    window.location.href = url.toString();
-  }
-
-  validateFilters() {
-    const filterRows = this.element.querySelectorAll('.filters-filter-row');
-    
-    let isValid = true;
-    const invalidFilters = [];
-    
-    filterRows.forEach((filterRow, index) => {
-      const fieldSelect = filterRow.querySelector('select[name*="[field]"]');
-      const fieldValue = fieldSelect ? fieldSelect.value : '';
-      
-      const operatorSelect = filterRow.querySelector('select[name*="[operator]"]');
-      const operatorValue = operatorSelect ? operatorSelect.value : '';
-      
-      const valueInput = filterRow.querySelector('input[name*="[value]"], select[name*="[value]"]');
-      const inputValue = valueInput ? valueInput.value.trim() : '';
-      
-      const hasAnyValue = fieldValue || operatorValue || inputValue;
-      
-      if (hasAnyValue) {
-        if (!fieldValue || !operatorValue || !inputValue) {
-          invalidFilters.push(index + 1);
-          isValid = false;
-          
-          filterRow.classList.add('filter-invalid');
-          
-          setTimeout(() => {
-            filterRow.classList.remove('filter-invalid');
-          }, 3000);
-        } else {
-          filterRow.classList.remove('filter-invalid');
-        }
-      } else {
-        filterRow.classList.remove('filter-invalid');
-      }
-    });
-    
-    if (!isValid) {
-      this.showValidationError(invalidFilters);
-    } else {
-      this.clearValidationError();
-    }
-    
-    return isValid;
-  }
-
-  showValidationError(invalidFilters) {
-    this.clearValidationError();
-    
-    const errorMessage = document.createElement('div');
-    errorMessage.className = 'validation-error-message';
-    errorMessage.style.cssText = `
-      background-color: #f8d7da !important;
-      border: 2px solid #dc3545 !important;
-      color: #721c24 !important;
-      padding: 16px 20px !important;
-      border-radius: 8px !important;
-      font-size: 14px !important;
-      font-weight: 500 !important;
-      margin: 16px 0 !important;
-      display: flex !important;
-      align-items: center !important;
-      gap: 12px !important;
-      z-index: 10000 !important;
-      position: relative !important;
-      width: 100% !important;
-      box-sizing: border-box !important;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-    `;
-    
-    const filterText = invalidFilters.length === 1 ? 'filtro' : 'filtros';
-    const filterNumbers = invalidFilters.join(', ');
-    
-    errorMessage.innerHTML = `
-      <span>⚠️</span>
-      <span>Por favor, preencha todos os campos dos ${filterText} ${filterNumbers}. Todos os campos (Campo, Operador e Valor) são obrigatórios.</span>
-    `;
-    
-    let targetElement = null;
-    
-    targetElement = this.element.querySelector('.filters-modal-content');
-    
-    if (!targetElement) {
-      targetElement = this.element.querySelector('.modal-body');
-    }
-    
-    if (!targetElement) {
-      targetElement = this.element.querySelector('.modal-content');
-    }
-    
-    if (!targetElement) {
-      targetElement = this.element.querySelector('.filters-modal');
-    }
-    
-    if (!targetElement) {
-      targetElement = this.element;
-    }
-    
-    if (targetElement) {
-      const header = targetElement.querySelector('.filters-modal-header');
-      if (header && header.nextSibling) {
-        targetElement.insertBefore(errorMessage, header.nextSibling);
-      } else if (targetElement.firstChild) {
-        targetElement.insertBefore(errorMessage, targetElement.firstChild);
-      } else {
-        targetElement.appendChild(errorMessage);
-      }
-      
-      if (!targetElement.querySelector('.validation-error-message')) {
-        const modal = this.element.querySelector('.filters-modal');
-        if (modal) {
-          modal.insertBefore(errorMessage, modal.firstChild);
-        } else {
-          document.body.appendChild(errorMessage);
-        }
-      }
-    }
-  }
-
-  clearValidationError() {
-    const existingError = this.element.querySelector('.validation-error-message');
-    if (existingError) {
-      existingError.remove();
     }
   }
 
@@ -643,33 +410,37 @@ export default class extends Controller {
     }
     
     if (resetCounters) {
-    this.groupCount = 1;
-    this.filterCounts = { group_1: 0 };
+      this.groupCount = 1;
+      this.filterCounts = { group_1: 1 };
     }
     
     this.clearValidationError();
     this.updateButtonStates();
   }
 
+  applyFilters() {
+    if (!this.validateFilters()) {
+      return;
+    }
+    
+    const filterParams = this.buildFilterParams();
+    
+    const url = new URL(window.location);
+    url.search = new URLSearchParams(filterParams).toString();
+    window.location.href = url.toString();
+  }
+
   createGroupHtml(groupId) {
-    const previousOperator = this.getSelectedOperator();
-    const isFirstGroup = groupId === 'group_1';
-    const isFirstOperator = groupId === 'group_2';
+    const groupIndex = this.groupCount - 1;
     
     return `
       <div class="filters-block" data-group-id="${groupId}">
         <div class="filters-left-section">
           <div class="filters-operator-block" id="operator-block-${groupId}">
-            ${isFirstGroup ? `
-              <div class="filters-where-block">
-                <div class="filters-where-label">Onde</div>
-              </div>
-            ` : `
-              <select name="group_operator_${groupId}" class="filters-operator-select ${isFirstOperator ? 'operator-editable' : 'operator-disabled'}" data-action="change->filters-modal#updateGroupOperator" ${isFirstOperator ? '' : 'disabled'}>
-                <option value="AND" ${previousOperator === 'AND' ? 'selected' : ''}>E</option>
-                <option value="OR" ${previousOperator === 'OR' ? 'selected' : ''}>OU</option>
-              </select>
-            `}
+            <select name="q[g][${groupIndex}][m]" class="filters-operator-select operator-editable" data-action="change->filters-modal#updateGroupOperator">
+              <option value="and">E</option>
+              <option value="or">OU</option>
+            </select>
           </div>
         </div>
         
@@ -684,9 +455,9 @@ export default class extends Controller {
             
             <div class="filters-group-operator-section">
               <label class="filters-label">Operador entre filtros:</label>
-              <select name="groups[${groupId}][filter_operator]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-${groupId}">
-                <option value="AND">E (AND)</option>
-                <option value="OR">OU (OR)</option>
+              <select name="q[g][${groupIndex}][m]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-${groupId}">
+                <option value="and">E (AND)</option>
+                <option value="or">OU (OR)</option>
               </select>
             </div>
             
@@ -703,12 +474,16 @@ export default class extends Controller {
   }
 
   createFilterHtml(filterId) {
+    const groupId = filterId.split('_')[1];
+    const groupIndex = parseInt(groupId.replace('group_', '')) - 1;
+    const filterIndex = this.filterCounts[`group_${groupId}`] - 1;
+    
     return `
       <div class="filters-filter-row" id="filter-row-${filterId}">
         <div class="filters-filter-grid">
           <div class="filters-filter-field">
             <label class="filters-label">Campo:</label>
-            <select name="groups[${filterId.split('_')[1]}][filters][${filterId}][field]" class="filters-select" data-action="change->filters-modal#updateFilterField" id="field-${filterId}">
+            <select name="q[g][${groupIndex}][c][${filterIndex}][a][0][name]" class="filters-select" data-action="change->filters-modal#updateFilterField" id="field-${filterId}">
               <option value="title">Título</option>
               <option value="description">Descrição</option>
               <option value="status">Status</option>
@@ -725,16 +500,16 @@ export default class extends Controller {
           
           <div class="filters-filter-field">
             <label class="filters-label">Operador:</label>
-            <select name="groups[${filterId.split('_')[1]}][filters][${filterId}][operator]" class="filters-select" id="operator-${filterId}">
-              <option value="equals">Igual</option>
-              <option value="not_equals">Diferente</option>
+            <select name="q[g][${groupIndex}][c][${filterIndex}][a][0][p]" class="filters-select" id="operator-${filterId}">
+              <option value="eq">Igual</option>
+              <option value="not_eq">Diferente</option>
             </select>
           </div>
           
           <div class="filters-filter-field">
             <label class="filters-label">Valor:</label>
             <div class="filters-value-container" data-field-type="text" id="value-container-${filterId}">
-              <input type="text" name="groups[${filterId.split('_')[1]}][filters][${filterId}][value]" class="filters-select" id="value-${filterId}">
+              <input type="text" name="q[g][${groupIndex}][c][${filterIndex}][v][0][value]" class="filters-select" id="value-${filterId}" placeholder="Digite o valor...">
             </div>
           </div>
           
@@ -746,195 +521,6 @@ export default class extends Controller {
         </div>
       </div>
     `;
-  }
-
-  buildFilterParams(formData) {
-    const params = {};
-    
-    const groupOperator = formData.get('group_operator');
-    if (groupOperator) {
-      params['group_operator'] = groupOperator;
-    }
-    
-    const groups = {};
-    for (const [key, value] of formData.entries()) {
-      if (key.startsWith('groups[')) {
-        const match = key.match(/groups\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]/);
-        if (match) {
-          const [, groupId, type, filterId, field] = match;
-          
-          if (!groups[groupId]) {
-            groups[groupId] = { filter_operator: 'AND', filters: {} };
-          }
-          if (type === 'filter_operator') {
-            groups[groupId].filter_operator = value;
-          } else if (type === 'filters') {
-            if (!groups[groupId].filters[filterId]) {
-              groups[groupId].filters[filterId] = {};
-            }
-            groups[groupId].filters[filterId][field] = value;
-          }
-        }
-      }
-    }
-        
-    Object.keys(groups).forEach(groupId => {
-      const group = groups[groupId];
-      const filters = Object.values(group.filters).filter(filter => 
-        filter.field && filter.value && filter.operator
-      );
-            
-      if (filters.length > 0) {
-        const groupNumber = groupId.replace('group_', '');
-        params[`groups[${groupNumber}][filter_operator]`] = group.filter_operator;
-        filters.forEach((filter, index) => {
-          params[`groups[${groupNumber}][filters][${index}][field]`] = filter.field;
-          params[`groups[${groupNumber}][filters][${index}][operator]`] = filter.operator;
-          params[`groups[${groupNumber}][filters][${index}][value]`] = filter.value;
-        });
-      }
-    });
-    
-    return params;
-  }
-
-  restoreFiltersFromUrl() {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    const groups = this.parseUrlGroups(urlParams);
-    if (Object.keys(groups).length === 0) {
-      return;
-    }
-    
-    this.clearFilters(false);
-    
-    this.groupCount = 1;
-    this.filterCounts = {};
-    
-    const processGroup = (groupId, group, index) => {
-      return new Promise((resolve) => {
-        this.filterCounts[groupId] = group.filters ? group.filters.length : 0;
-      
-      if (index > 0) {
-          this.addGroup(true);
-      }
-      
-        setTimeout(() => {
-          let groupElement = this.groupContainerTarget.querySelector(`[data-group-id="${groupId}"]`);
-      
-      if (!groupElement) {
-            groupElement = this.element.querySelector(`[data-group-id="${groupId}"]`);
-          }
-          
-          if (!groupElement) {
-            groupElement = document.getElementById(`group-${groupId}`);
-          }
-          
-          if (!groupElement) {
-            resolve();
-        return;
-      }
-      
-      const filterOperatorSelect = groupElement.querySelector('select[name*="[filter_operator]"]');
-      if (filterOperatorSelect && group.filter_operator) {
-        filterOperatorSelect.value = group.filter_operator;
-      }
-      
-      if (group.filters && group.filters.length > 0) {
-        group.filters.forEach((filter, filterIndex) => {
-          this.addFilterToGroup(groupElement);
-          
-          const filterRows = groupElement.querySelectorAll('.filters-filter-row');
-          const newFilterRow = filterRows[filterRows.length - 1];
-          
-          if (newFilterRow) {
-            this.populateFilterRow(newFilterRow, filter);
-          }
-        });
-      }
-          
-          resolve();
-        }, 100 + (index * 50)); // Delay to load group
-      });
-    };
-    
-    const processAllGroups = async () => {
-      const groupIds = Object.keys(groups);
-      
-      for (let i = 0; i < groupIds.length; i++) {
-        const groupId = groupIds[i];
-        const group = groups[groupId];
-        await processGroup(groupId, group, i);
-      }
-      
-      const groupOperator = urlParams.get('group_operator');
-      if (groupOperator) {
-        const groupOperatorSelects = this.element.querySelectorAll('select[name*="group_operator_"]');
-        groupOperatorSelects.forEach((select, index) => {
-          select.value = groupOperator;
-          
-          if (index === 0) {
-            select.classList.remove('operator-disabled');
-            select.classList.add('operator-editable');
-            select.disabled = false;
-          } else {
-            select.classList.remove('operator-editable');
-            select.classList.add('operator-disabled');
-            select.disabled = true;
-          }
-        });
-      }
-      
-      this.updateButtonStates();
-    };
-    
-    processAllGroups();
-  }
-
-  parseUrlGroups(urlParams) {
-    const groups = {};
-    
-    for (const [key, value] of urlParams.entries()) {
-      if (key.startsWith('groups[')) {
-        let match = key.match(/groups\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]/);
-        if (match) {
-          let [, groupId, type, filterIndex, field] = match;
-          
-          if (/^\d+$/.test(groupId)) {
-            groupId = `group_${groupId}`;
-          }
-          
-          if (!groups[groupId]) {
-            groups[groupId] = { filter_operator: 'AND', filters: [] };
-          }
-          
-          if (type === 'filter_operator') {
-            groups[groupId].filter_operator = value;
-          } else if (type === 'filters') {
-            const filterIndexNum = isNaN(filterIndex) ? groups[groupId].filters.length : parseInt(filterIndex);
-            
-            if (isNaN(filterIndex)) {
-              groups[groupId].filters.push({});
-            } else {
-              if (!groups[groupId].filters[filterIndexNum]) {
-                groups[groupId].filters[filterIndexNum] = {};
-              }
-            }
-            
-            const targetFilter = groups[groupId].filters[filterIndexNum];
-            targetFilter[field] = value;
-          }
-        }
-      }
-    }
-    
-    Object.keys(groups).forEach(groupId => {
-      groups[groupId].filters = groups[groupId].filters.filter(filter => 
-        filter && filter.field && filter.value && filter.operator
-      );
-    });
-    
-    return groups;
   }
 
   addFilterToGroup(groupElement) {
@@ -952,30 +538,6 @@ export default class extends Controller {
     filterContainer.insertAdjacentHTML('beforeend', filterHtml);
     
     this.updateButtonStates();
-  }
-
-  populateFilterRow(filterRow, filter) {
-    const fieldSelect = filterRow.querySelector('select[name*="[field]"]');
-    
-    if (fieldSelect && filter.field) {
-      fieldSelect.value = filter.field;
-      
-      fieldSelect.dispatchEvent(new Event('change'));
-      
-    setTimeout(() => {
-      const valueInput = filterRow.querySelector('input[name*="[value]"], select[name*="[value]"]');
-      
-      if (valueInput && filter.value) {
-        valueInput.value = filter.value;
-      }
-      }, 150);
-    }
-    
-    const operatorSelect = filterRow.querySelector('select[name*="[operator]"]');
-    
-    if (operatorSelect && filter.operator) {
-      operatorSelect.value = filter.operator;
-    }
   }
 
   showLimitMessage(type, groupId = null) {
@@ -1086,14 +648,6 @@ export default class extends Controller {
     });
   }
 
-  getSelectedOperator() {
-    const firstGroupOperatorSelect = this.element.querySelector('select[name*="group_operator_"]');
-    if (firstGroupOperatorSelect) {
-      return firstGroupOperatorSelect.value;
-    }
-    return 'AND';
-  }
-
   centerOperatorOptions() {
     const operatorSelects = this.element.querySelectorAll('.filters-operator-select');
     operatorSelects.forEach(select => {
@@ -1108,5 +662,106 @@ export default class extends Controller {
         option.style.background = 'transparent';
       });
     });
+  }
+
+  clearValidationError() {
+    const existingError = this.element.querySelector('.validation-error-message');
+    if (existingError) {
+      existingError.remove();
+    }
+  }
+
+  restoreFiltersFromUrl() {
+    this.updateButtonStates();
+  }
+
+  validateFilters() {
+    const filterRows = this.element.querySelectorAll('.filters-filter-row');
+    let hasValidFilter = false;
+    
+    filterRows.forEach((filterRow) => {
+      const fieldSelect = filterRow.querySelector('select[data-action*="updateFilterField"]');
+      const operatorSelect = filterRow.querySelector('select[id*="operator"]');
+      const valueInput = filterRow.querySelector('input[id*="value"]');
+      const valueSelect = filterRow.querySelector('select[id*="value"]');
+      
+      const valueElement = valueInput || valueSelect;
+      
+      if (fieldSelect && operatorSelect && valueElement) {
+        const field = fieldSelect.value;
+        const operator = operatorSelect.value;
+        const value = valueElement.value.trim();
+        
+        if (field && operator && value) {
+          hasValidFilter = true;
+        }
+      }
+    });
+    
+    if (!hasValidFilter) {
+      this.showValidationError('Por favor, preencha pelo menos um filtro.');
+      return false;
+    }
+    
+    this.clearValidationError();
+    return true;
+  }
+
+  showValidationError(message) {
+    this.clearValidationError();
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'validation-error-message';
+    errorDiv.textContent = message;
+    
+    const form = this.element.querySelector('form');
+    if (form) {
+      form.insertBefore(errorDiv, form.firstChild);
+    }
+  }
+
+  buildFilterParams() {
+    const params = {};
+    const filterGroups = {};
+    
+    const filterRows = this.element.querySelectorAll('.filters-filter-row');
+    console.log('Total de filtros encontrados:', filterRows.length);
+    
+    filterRows.forEach((filterRow, index) => {
+      const fieldSelect = filterRow.querySelector('select[data-action*="updateFilterField"]');
+      const operatorSelect = filterRow.querySelector('select[id*="operator"]');
+      const valueInput = filterRow.querySelector('input[id*="value"]');
+      const valueSelect = filterRow.querySelector('select[id*="value"]');
+      
+      const valueElement = valueInput || valueSelect;
+      
+      if (fieldSelect && operatorSelect && valueElement) {
+        const field = fieldSelect.value;
+        const operator = operatorSelect.value;
+        const value = valueElement.value.trim();
+        
+        if (field && operator && value) {
+          const paramName = `${field}_${operator}`;
+          
+          if (!filterGroups[paramName]) {
+            filterGroups[paramName] = [];
+          }
+          filterGroups[paramName].push(value);
+        }
+      }
+    });
+    
+    Object.keys(filterGroups).forEach(paramName => {
+      const values = filterGroups[paramName];
+      if (values.length === 1) {
+        params[`q[${paramName}]`] = values[0];
+      } else {
+        values.forEach((value, index) => {
+          params[`q[${paramName}][${index}]`] = value;
+        });
+      }
+    });
+    
+    return params;
   }
 }
