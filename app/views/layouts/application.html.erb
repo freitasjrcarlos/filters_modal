@@ -19,6 +19,9 @@
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    
+    <%# Includes all JavaScript files in app/javascript %>
+    <%= javascript_importmap_tags %>
   </head>
 
   <body style="padding: 16px">

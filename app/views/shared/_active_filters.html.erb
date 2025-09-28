@@ -1,0 +1,193 @@
+<%
+  # Allow customization of the partial
+  clear_path = local_assigns[:clear_path] || activities_path
+  title = local_assigns[:title] || "Filtros Ativos"
+  css_class = local_assigns[:css_class] || "mb-3"
+%>
+
+<% if params[:q].present? %>
+  <div class="active-filters <%= css_class %>">
+    <div class="active-filters-header">
+      <h4 class="active-filters-title"><%= title %></h4>
+      <%= link_to "Limpar Todos", clear_path, class: "btn btn-sm btn-outline-danger" %>
+    </div>
+    
+    <div class="active-filters-list">
+      <% 
+        # Ensure params[:q] is a hash for display purposes
+        q_params = params[:q]
+        if q_params.is_a?(String)
+          q_params = {}
+        elsif q_params.respond_to?(:to_unsafe_h)
+          q_params = q_params.to_unsafe_h
+        end
+        
+        
+        # Handle groupings structure (q[groupings])
+        if q_params && q_params[:groupings]
+          groupings_hash = q_params[:groupings]
+          
+          groupings_hash.each_with_index do |(grouping_index, grouping_data), grouping_idx|
+            if grouping_idx > 0
+              %><span class="filter-group-operator">OU</span><%
+            end
+            
+            grouping_data.each do |field_operator, value|
+              if value.present?
+                field_name = field_operator.gsub(/_eq$|_not_eq$|_cont$|_not_cont$|_gt$|_gteq$|_lt$|_lteq$|_in$|_not_in$/, '')
+                operator = case field_operator
+                          when /_not_eq$/ then 'not_eq'
+                          when /_cont$/ then 'cont'
+                          when /_not_cont$/ then 'not_cont'
+                          when /_gt$/ then 'gt'
+                          when /_gteq$/ then 'gteq'
+                          when /_lt$/ then 'lt'
+                          when /_lteq$/ then 'lteq'
+                          when /_in$/ then 'in'
+                          when /_not_in$/ then 'not_in'
+                          else 'eq'
+                          end
+                %>
+                <div class="filter-tag">
+                  <span class="filter-tag-content">
+                    <strong><%= get_field_display_name(field_name) %></strong>
+                    <%= get_operator_display_name(operator) %>
+                    <em>"<%= value %>"</em>
+                  </span>
+                  <%= link_to "×", remove_grouping_filter_url(grouping_index, field_operator, clear_path), class: "filter-tag-remove" %>
+                </div>
+                <%
+              end
+            end
+          end
+        elsif q_params && q_params[:g]
+          groups_hash = q_params[:g]
+          
+          # Get the operator between groups from the main q_params
+          between_groups_operator = q_params[:m] || 'and'
+          between_groups_operator_text = between_groups_operator == 'or' ? 'OU' : 'E'
+          
+          groups_hash.each_with_index do |(group_index, group_data), group_idx|
+            if group_idx > 0
+              %><span class="filter-group-operator"><%= between_groups_operator_text %></span><%
+            end
+            
+            # Handle both complex structure (q[g][0][c][0][a][0][name]) and simple structure (q[g][0][title_eq])
+            group_filters = []
+            
+            # First, try to handle the complex structure (from form submission)
+            if group_data[:c]
+              filter_operator = group_data[:c][:m] || 'and'
+              filter_operator_text = filter_operator == 'or' ? 'OU' : 'E'
+              
+              group_data[:c].each do |filter_index, filter_data|
+                next if filter_index == 'm'
+                
+                # Handle the complex structure: q[g][0][c][0][a][0][name]
+                if filter_data.is_a?(Hash) && filter_data["a"] && filter_data["a"]["0"] && filter_data["a"]["0"]["name"]
+                  field_name = filter_data["a"]["0"]["name"]
+                  operator = filter_data["p"] || 'eq'
+                  value = filter_data["v"] && filter_data["v"]["0"] ? filter_data["v"]["0"]["value"] : ''
+                  
+                  if value.present?
+                    group_filters << {
+                      field: field_name,
+                      operator: operator,
+                      value: value,
+                      original_index: filter_index
+                    }
+                  end
+                end
+              end
+            end
+            
+            # If no complex structure found, try simple structure (from JavaScript buildFilterParams)
+            if group_filters.empty?
+              group_data.each do |key, value|
+                next if key == 'm' || !value.present?
+                
+                # Check if it's a field_operator pattern (e.g., title_eq, status_not_eq)
+                if key.match?(/_eq$|_not_eq$|_cont$|_not_cont$|_gt$|_gteq$|_lt$|_lteq$|_in$|_not_in$/)
+                  field_name = key.gsub(/_eq$|_not_eq$|_cont$|_not_cont$|_gt$|_gteq$|_lt$|_lteq$|_in$|_not_in$/, '')
+                  operator = case key
+                            when /_not_eq$/ then 'not_eq'
+                            when /_cont$/ then 'cont'
+                            when /_not_cont$/ then 'not_cont'
+                            when /_gt$/ then 'gt'
+                            when /_gteq$/ then 'gteq'
+                            when /_lt$/ then 'lt'
+                            when /_lteq$/ then 'lteq'
+                            when /_in$/ then 'in'
+                            when /_not_in$/ then 'not_in'
+                            else 'eq'
+                            end
+                  
+                  group_filters << {
+                    field: field_name,
+                    operator: operator,
+                    value: value,
+                    original_index: key
+                  }
+                end
+              end
+              
+              filter_operator_text = (group_data[:m] == 'or') ? 'OU' : 'E'
+            end
+            
+            if group_filters.any?
+              group_filters.each_with_index do |filter, idx|
+                if idx > 0
+                  %><span class="filter-group-operator"><%= filter_operator_text %></span><%
+                end
+                %>
+                <div class="filter-tag">
+                  <span class="filter-tag-content">
+                    <strong><%= get_field_display_name(filter[:field]) %></strong>
+                    <%= get_operator_display_name(filter[:operator]) %>
+                    <em>"<%= filter[:value] %>"</em>
+                  </span>
+                  <%= link_to "×", remove_filter_url(group_index, filter[:original_index], clear_path), class: "filter-tag-remove" %>
+                </div>
+                <%
+              end
+            end
+          end
+        else
+          # Handle simple filters (non-grouped)
+          q_params.each do |key, value|
+            if value.present? && !key.start_with?('g[') && !key.start_with?('s') && !key.start_with?('m')
+              field_name = key.gsub(/_eq$|_not_eq$|_cont$|_not_cont$|_gt$|_gteq$|_lt$|_lteq$|_in$|_not_in$/, '')
+              operator = case key
+                        when /_not_eq$/ then 'not_eq'
+                        when /_cont$/ then 'cont'
+                        when /_not_cont$/ then 'not_cont'
+                        when /_gt$/ then 'gt'
+                        when /_gteq$/ then 'gteq'
+                        when /_lt$/ then 'lt'
+                        when /_lteq$/ then 'lteq'
+                        when /_in$/ then 'in'
+                        when /_not_in$/ then 'not_in'
+                        else 'eq'
+                        end
+              %>
+              <div class="filter-tag">
+                <span class="filter-tag-content">
+                  <strong><%= get_field_display_name(field_name) %></strong>
+                  <%= get_operator_display_name(operator) %>
+                  <em>"<%= value %>"</em>
+                </span>
+                <% 
+                  new_params = q_params.dup
+                  new_params.delete(key)
+                  remove_url = new_params.any? ? "#{clear_path}?q=#{new_params.to_query}" : clear_path
+                %>
+                <%= link_to "×", remove_url, class: "filter-tag-remove" %>
+              </div>
+              <%
+            end
+          end
+        end
+      %>
+    </div>
+  </div>
+<% end %>

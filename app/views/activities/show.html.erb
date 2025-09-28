@@ -2,9 +2,8 @@
 
 <%= render @activity %>
 
-<div>
-  <%= link_to "Editar", edit_activity_path(@activity) %> |
-  <%= link_to "Voltar", activities_path %>
-
-  <%= button_to "Deletar", @activity, method: :delete %>
+<div class="flex gap-2">
+  <%= link_to "Editar", edit_activity_path(@activity), class: "btn btn-primary" %>
+  <%= link_to "Voltar", activities_path, class: "btn btn-secondary" %>
+  <%= button_to "Deletar", @activity, method: :delete, class: "btn btn-danger", data: { confirm: "Tem certeza que deseja deletar esta atividade?" } %>
 </div>

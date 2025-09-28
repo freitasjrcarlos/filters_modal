@@ -1,56 +1,45 @@
 <% content_for :title, "Activities" %>
 
+<div data-controller="filters-modal">
+<script type="application/json" id="users-data">
+<%= raw @users.map { |user| { id: user.id, name: user.name } }.to_json %>
+</script>
+
 <h1>Atividades</h1>
 
-<p style="color: green"><%= notice %></p>
+<% if notice %>
+  <div class="alert alert-success"><%= notice %></div>
+<% end %>
 
-<div style="margin-bottom: 1em; display: flex; justify-content: space-between">
+<div class="flex-between mb-2">
   <%= link_to "Nova atividade", new_activity_path, class: "btn btn-primary" %>
 
-  <button>Filtrar</button>
+  <button data-action="click->filters-modal#openModal" class="btn btn-primary">
+    Filtrar
+  </button>
 </div>
 
-<div style="overflow-x: auto; border: 1px solid #ccc; border-radius: 6px;">
-  <table style="width: 100%; min-width: 1000px; border-collapse: collapse;">
-    <thead style="background-color: #f2f2f2;">
-      <tr>
-        <th style="padding: 8px; text-align: left;">ID</th>
-        <th style="padding: 8px; text-align: left;">Título</th>
-        <th style="padding: 8px; text-align: left;">Descrição</th>
-        <th style="padding: 8px; text-align: left;">Status</th>
-        <th style="padding: 8px; text-align: left;">Início</th>
-        <th style="padding: 8px; text-align: left;">Término</th>
-        <th style="padding: 8px; text-align: left;">Tipo</th>
-        <th style="padding: 8px; text-align: left;">% Completo</th>
-        <th style="padding: 8px; text-align: left;">Prioridade</th>
-        <th style="padding: 8px; text-align: left;">Urgência</th>
-        <th style="padding: 8px; text-align: left;">Pontos</th>
-        <th style="padding: 8px; text-align: left;">Responsável</th>
-        <th style="padding: 8px; text-align: left;">Ações</th>
-      </tr>
-    </thead>
+<!-- Active filters -->
+<%= render 'shared/active_filters' %>
+
+<div class="table-container">
+  <table class="table">
+    <%= render_table_header(@table_columns) %>
     <tbody>
       <% @activities.each do |activity| %>
-        <tr style="border-top: 1px solid #ddd;">
-          <td style="padding: 8px;"><%= activity.id %></td>
-          <td style="padding: 8px;"><%= activity.title %></td>
-          <td style="padding: 8px;"><%= truncate(activity.description, length: 50) %></td>
-          <td style="padding: 8px;"><%= activity.status ? '✅' : '❌' %></td>
-          <td style="padding: 8px;"><%= activity.start_date %></td>
-          <td style="padding: 8px;"><%= activity.end_date %></td>
-          <td style="padding: 8px;"><%= activity.kind_value %></td>
-          <td style="padding: 8px;"><%= activity.completed_percent %> %</td>
-          <td style="padding: 8px;"><%= activity.priority %></td>
-          <td style="padding: 8px;"><%= activity.urgency_value %></td>
-          <td style="padding: 8px;"><%= activity.points %></td>
-          <td style="padding: 8px;"><%= activity.user_id %></td>
-          <td style="padding: 8px;">
-            <%= link_to 'Show', activity, style: "margin-right: 6px;" %>
-            <%= link_to 'Edit', edit_activity_path(activity), style: "margin-right: 6px;" %>
-            <%= link_to 'Delete', activity, method: :delete, data: { confirm: 'Tem certeza?' }, style: "color: red;" %>
-          </td>
+        <tr>
+          <% @table_columns.each do |column| %>
+            <%= render_table_cell(activity, column) %>
+          <% end %>
         </tr>
       <% end %>
     </tbody>
   </table>
+</div>
+
+<!-- Pagination -->
+<%= render 'shared/pagination' %>
+
+<!-- Filters Modal -->
+<%= render 'shared/filters_modal' %>
 </div>

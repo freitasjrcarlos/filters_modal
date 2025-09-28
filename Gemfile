@@ -61,3 +61,6 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+
+gem "ransack", "~> 4.4"
+gem "kaminari", "~> 1.2"

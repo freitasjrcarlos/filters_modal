@@ -11,57 +11,83 @@
     </div>
   <% end %>
 
-  <div>
-    <%= form.label :title, style: "display: block" %>
-    <%= form.text_field :title %>
+  <div class="form-group">
+    <%= form.label :title, class: "form-label" %>
+    <%= form.text_field :title, class: "form-input" %>
   </div>
 
-  <div>
-    <%= form.label :description, style: "display: block" %>
-    <%= form.text_field :description %>
+  <div class="form-group">
+    <%= form.label :description, class: "form-label" %>
+    <%= form.text_field :description, class: "form-input" %>
   </div>
 
-  <div>
-    <%= form.label :status, style: "display: block" %>
-    <%= form.checkbox :status %>
+  <div class="form-group">
+    <%= form.label :status, class: "form-label" %>
+    <%= form.check_box :status, class: "form-input" %>
   </div>
 
-  <div>
-    <%= form.label :start_date, style: "display: block" %>
-    <%= form.date_field :start_date %>
+  <div class="form-group">
+    <%= form.label :start_date, class: "form-label" %>
+    <%= form.date_field :start_date, class: "form-input" %>
   </div>
 
-  <div>
-    <%= form.label :end_date, style: "display: block" %>
-    <%= form.date_field :end_date %>
+  <div class="form-group">
+    <%= form.label :end_date, class: "form-label" %>
+    <%= form.date_field :end_date, class: "form-input" %>
   </div>
 
-  <div>
-    <%= form.label :kind, style: "display: block" %>
-    <%= form.number_field :kind %>
+  <div class="form-group">
+    <%= form.label :kind, class: "form-label" %>
+    <%= form.select :kind, 
+        options_for_select(Activity::KINDS.map { |key, value| [value, key] }, activity.kind),
+        { prompt: "Selecione o tipo" },
+        { class: "form-select" } %>
   </div>
 
-  <div>
-    <%= form.label :completed_percent, style: "display: block" %>
-    <%= form.text_field :completed_percent %>
+  <div class="form-group">
+    <%= form.label :completed_percent, class: "form-label" %>
+    <%= form.number_field :completed_percent, 
+        class: "form-input", 
+        min: 0, 
+        max: 100, 
+        step: 0.1,
+        placeholder: "0.0" %>
   </div>
 
-  <div>
-    <%= form.label :priority, style: "display: block" %>
-    <%= form.number_field :priority %>
+  <div class="form-group">
+    <%= form.label :priority, class: "form-label" %>
+    <%= form.select :priority, 
+        options_for_select(Activity::PRIORITIES.map { |key, value| [value, key] }, activity.priority),
+        { prompt: "Selecione a prioridade" },
+        { class: "form-select" } %>
   </div>
 
-  <div>
-    <%= form.label :urgency, style: "display: block" %>
-    <%= form.number_field :urgency %>
+  <div class="form-group">
+    <%= form.label :urgency, class: "form-label" %>
+    <%= form.select :urgency, 
+        options_for_select(Activity::URGENCIES.map { |key, value| [value, key] }, activity.urgency),
+        { prompt: "Selecione a urgência" },
+        { class: "form-select" } %>
   </div>
 
-  <div>
-    <%= form.label :points, style: "display: block" %>
-    <%= form.number_field :points %>
+  <div class="form-group">
+    <%= form.label :points, class: "form-label" %>
+    <%= form.number_field :points, 
+        class: "form-input", 
+        min: 1, 
+        placeholder: "Ex: 1, 2, 3, 5, 8, 13, 21..." %>
   </div>
 
-  <div>
-    <%= form.submit %>
+  <div class="form-group">
+    <%= form.label :user_id, "Responsável", class: "form-label" %>
+    <%= form.select :user_id, 
+        options_from_collection_for_select(@users, :id, :name, activity.user_id),
+        { prompt: "Selecione o responsável" },
+        { class: "form-select", required: true } %>
+  </div>
+
+  <div class="flex gap-2">
+    <%= form.submit class: "btn btn-primary" %>
+    <%= link_to "Cancelar", activities_path, class: "btn btn-secondary" %>
   </div>
 <% end %>

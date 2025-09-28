@@ -1,0 +1,67 @@
+<% if @total_pages > 1 %>
+  <div class="pagination-container mt-4">
+    <div class="pagination-info mb-2">
+      <small class="text-muted">
+        Mostrando <%= @offset + 1 %> a <%= [@offset + @per_page, @total_count].min %> 
+        de <%= @total_count %> atividades
+      </small>
+    </div>
+    
+    <nav aria-label="Navegação de páginas" class="d-flex justify-content-center">
+      <ul class="pagination pagination-sm mb-0">
+        <% if @has_previous %>
+          <li class="page-item">
+            <%= link_to "‹", activities_path(params.permit!.merge(page: @page - 1)), 
+                        class: "page-link", title: "Página anterior" %>
+          </li>
+        <% end %>
+        
+        <% start_page = [@page - 2, 1].max %>
+        <% end_page = [@page + 2, @total_pages].min %>
+        
+        <% if start_page > 1 %>
+          <li class="page-item">
+            <%= link_to "1", activities_path(params.permit!.merge(page: 1)), class: "page-link" %>
+          </li>
+          <% if start_page > 2 %>
+            <li class="page-item disabled">
+              <span class="page-link">⋯</span>
+            </li>
+          <% end %>
+        <% end %>
+        
+        <% (start_page..end_page).each do |page_num| %>
+          <% if page_num == @page %>
+            <li class="page-item active">
+              <span class="page-link"><%= page_num %></span>
+            </li>
+          <% else %>
+            <li class="page-item">
+              <%= link_to page_num, activities_path(params.permit!.merge(page: page_num)), 
+                          class: "page-link" %>
+            </li>
+          <% end %>
+        <% end %>
+        
+        <% if end_page < @total_pages %>
+          <% if end_page < @total_pages - 1 %>
+            <li class="page-item disabled">
+              <span class="page-link">⋯</span>
+            </li>
+          <% end %>
+          <li class="page-item">
+            <%= link_to @total_pages, activities_path(params.permit!.merge(page: @total_pages)), 
+                        class: "page-link" %>
+          </li>
+        <% end %>
+        
+        <% if @has_next %>
+          <li class="page-item">
+            <%= link_to "›", activities_path(params.permit!.merge(page: @page + 1)), 
+                        class: "page-link", title: "Próxima página" %>
+          </li>
+        <% end %>
+      </ul>
+    </nav>
+  </div>
+<% end %>
