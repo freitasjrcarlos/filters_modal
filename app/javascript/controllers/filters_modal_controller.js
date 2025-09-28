@@ -35,6 +35,10 @@ export default class extends Controller {
     
     this.filterableFields = this.getFilterableFieldsData();
     
+    this.usedFieldsByGroup = {
+      '1': new Set()
+    };
+    
     this.addValidationStyles();
     this.centerOperatorOptions();
     
@@ -97,6 +101,8 @@ export default class extends Controller {
     this.groupCount++;
     const groupId = `group_${this.groupCount}`;
     this.filterCounts[groupId] = 0;
+    
+    this.usedFieldsByGroup[groupId] = new Set();
 
     const groupHtml = this.createGroupHtml(groupId);
     this.groupContainerTarget.insertAdjacentHTML('beforeend', groupHtml);
@@ -136,6 +142,7 @@ export default class extends Controller {
     }
 
     delete this.filterCounts[groupId];
+    delete this.usedFieldsByGroup[groupId];
     this.groupCount--;
     
     this.updateOperatorsVisibility();
@@ -199,12 +206,20 @@ export default class extends Controller {
   }
 
   executeFilterRemoval(filterElement, groupId, filterId) {
+    // Remover campo do rastreamento antes de remover o elemento
+    const selectedField = filterElement.dataset.selectedField;
+    if (selectedField && this.usedFieldsByGroup[groupId]) {
+      this.usedFieldsByGroup[groupId].delete(selectedField);
+    }
+    
     filterElement.remove();
     
     if (this.filterCounts[groupId]) {
       this.filterCounts[groupId]--;
     }
     
+    // Atualizar disponibilidade de campos após remoção
+    this.updateFieldAvailabilityForGroup(groupId);
     this.updateButtonStates();
   }
 
@@ -245,6 +260,30 @@ export default class extends Controller {
     const field = event.target.value;
     const filterRow = event.target.closest('.filters-filter-row');
     const valueContainer = filterRow.querySelector('.filters-value-container');
+    const filterId = filterRow.id.replace('filter-row-', '');
+    const groupId = filterId.split('_')[1];
+    
+    // Inicializar Set para o grupo se não existir
+    if (!this.usedFieldsByGroup[groupId]) {
+      this.usedFieldsByGroup[groupId] = new Set();
+    }
+    
+    // Remover campo anterior do rastreamento se existir
+    const previousField = filterRow.dataset.selectedField;
+    if (previousField) {
+      this.usedFieldsByGroup[groupId].delete(previousField);
+    }
+    
+    // Adicionar novo campo ao rastreamento se selecionado
+    if (field) {
+      this.usedFieldsByGroup[groupId].add(field);
+      filterRow.dataset.selectedField = field;
+    } else {
+      delete filterRow.dataset.selectedField;
+    }
+    
+    // Atualizar disponibilidade de campos apenas no grupo atual
+    this.updateFieldAvailabilityForGroup(groupId);
     
     // Encontrar o tipo do campo nos dados dinâmicos
     const fieldData = this.filterableFields.find(f => f.value === field);
@@ -303,6 +342,53 @@ export default class extends Controller {
     }
     
     return [];
+  }
+
+  updateFieldAvailabilityForGroup(groupId) {
+    // Atualizar apenas os selects de campo do grupo específico
+    const groupElement = document.getElementById(`group-${groupId}`);
+    if (!groupElement) return;
+    
+    const fieldSelects = groupElement.querySelectorAll('select[data-action*="updateFilterField"]');
+    const usedFieldsInGroup = this.usedFieldsByGroup[groupId] || new Set();
+    
+    fieldSelects.forEach(select => {
+      const currentValue = select.value;
+      const filterRow = select.closest('.filters-filter-row');
+      
+      // Limpar opções existentes (exceto a primeira opção vazia)
+      const firstOption = select.querySelector('option[value=""]');
+      select.innerHTML = '';
+      if (firstOption) {
+        select.appendChild(firstOption);
+      }
+      
+      // Adicionar opções atualizadas
+      this.filterableFields.forEach(field => {
+        const isUsed = usedFieldsInGroup.has(field.value);
+        const isCurrentField = field.value === currentValue;
+        
+        // Permitir o campo atual mesmo se estiver "usado" (para manter seleção)
+        const shouldDisable = isUsed && !isCurrentField;
+        
+        const option = document.createElement('option');
+        option.value = field.value;
+        option.textContent = field.label + (isUsed && !isCurrentField ? ' (já utilizado neste grupo)' : '');
+        
+        if (shouldDisable) {
+          option.disabled = true;
+          option.style.color = '#6c757d';
+          option.style.fontStyle = 'italic';
+        }
+        
+        select.appendChild(option);
+      });
+      
+      // Restaurar valor selecionado
+      if (currentValue) {
+        select.value = currentValue;
+      }
+    });
   }
 
   renderSelectField(container, field, filterRow) {
@@ -437,6 +523,8 @@ export default class extends Controller {
       this.filterCounts = { group_1: 1 };
     }
     
+    this.usedFieldsByGroup = {};
+    
     this.clearValidationError();
     this.updateOperatorsVisibility();
     this.updateButtonStates();
@@ -518,10 +606,14 @@ export default class extends Controller {
     const groupIndex = parseInt(groupId.replace('group_', '')) - 1;
     const filterIndex = this.filterCounts[`group_${groupId}`] - 1;
     
-    // Gerar opções dinâmicas baseadas nos campos disponíveis
-    const fieldOptions = this.filterableFields.map(field => 
-      `<option value="${field.value}">${field.label}</option>`
-    ).join('');
+    const usedFieldsInGroup = this.usedFieldsByGroup[groupId] || new Set();
+    
+    const fieldOptions = this.filterableFields.map(field => {
+      const isUsed = usedFieldsInGroup.has(field.value);
+      const disabled = isUsed ? 'disabled' : '';
+      const style = isUsed ? 'style="color: #6c757d; font-style: italic;"' : '';
+      return `<option value="${field.value}" ${disabled} ${style}>${field.label}${isUsed ? ' (já utilizado neste grupo)' : ''}</option>`;
+    }).join('');
     
     return `
       <div class="filters-filter-row" id="filter-row-${filterId}">
@@ -529,6 +621,7 @@ export default class extends Controller {
           <div class="filters-filter-field">
             <label class="filters-label">Campo:</label>
             <select name="q[g][${groupIndex}][c][${filterIndex}][a][0][name]" class="filters-select" data-action="change->filters-modal#updateFilterField" id="field-${filterId}">
+              <option value="">Selecione um campo...</option>
               ${fieldOptions}
             </select>
           </div>
@@ -766,7 +859,32 @@ export default class extends Controller {
   }
 
   restoreFiltersFromUrl() {
+    this.initializeUsedFields();
     this.updateButtonStates();
+  }
+
+  initializeUsedFields() {
+    this.usedFieldsByGroup = {};
+    
+    const filterRows = this.element.querySelectorAll('.filters-filter-row');
+    filterRows.forEach(filterRow => {
+      const fieldSelect = filterRow.querySelector('select[data-action*="updateFilterField"]');
+      if (fieldSelect && fieldSelect.value) {
+        const filterId = filterRow.id.replace('filter-row-', '');
+        const groupId = filterId.split('_')[1];
+        
+        if (!this.usedFieldsByGroup[groupId]) {
+          this.usedFieldsByGroup[groupId] = new Set();
+        }
+        
+        this.usedFieldsByGroup[groupId].add(fieldSelect.value);
+        filterRow.dataset.selectedField = fieldSelect.value;
+      }
+    });
+    
+    Object.keys(this.usedFieldsByGroup).forEach(groupId => {
+      this.updateFieldAvailabilityForGroup(groupId);
+    });
   }
 
   validateFilters() {
