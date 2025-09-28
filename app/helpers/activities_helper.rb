@@ -165,8 +165,76 @@ module ActivitiesHelper
     operator_names[operator] || operator
   end
 
-  # Gera URL para remover um filtro específico
-  def remove_filter_url(group_index, filter_index)
+  def build_nested_query_string(params)
+    return "" if params.empty?
+    
+    if params.keys == ['g'] && params['g'].is_a?(Hash)
+      query_parts = []
+      params['g'].each do |group_index, group_data|
+        group_data.each do |key, value|
+          query_parts << "q[g][#{group_index}][#{key}]=#{CGI.escape(value.to_s)}"
+        end
+      end
+      query_parts.join('&')
+    elsif params.keys.include?('g') && params.keys.include?('m')
+      query_parts = []
+      params['g'].each do |group_index, group_data|
+        group_data.each do |key, value|
+          query_parts << "q[g][#{group_index}][#{key}]=#{CGI.escape(value.to_s)}"
+        end
+      end
+      query_parts << "q[m]=#{CGI.escape(params['m'].to_s)}"
+      query_parts.join('&')
+    else
+      params.to_query
+    end
+  end
+
+  def filterable_fields
+    Activity.ransackable_attributes.map do |field|
+      {
+        value: field,
+        label: field_label(field),
+        type: field_type(field)
+      }
+    end
+  end
+
+  def field_label(field)
+    labels = {
+      'title' => 'Título',
+      'description' => 'Descrição',
+      'status' => 'Status',
+      'kind' => 'Tipo',
+      'urgency' => 'Urgência',
+      'priority' => 'Prioridade',
+      'user_id' => 'Usuário',
+      'start_date' => 'Data Início',
+      'end_date' => 'Data Término',
+      'completed_percent' => '% Completo',
+      'points' => 'Pontos',
+      'created_at' => 'Data Criação',
+      'updated_at' => 'Data Atualização'
+    }
+    labels[field] || field.humanize
+  end
+
+  def field_type(field)
+    case field
+    when 'kind', 'urgency', 'priority', 'user_id'
+      'select'
+    when 'status'
+      'boolean'
+    when 'start_date', 'end_date', 'created_at', 'updated_at'
+      'date'
+    when 'completed_percent', 'points'
+      'number'
+    else
+      'text'
+    end
+  end
+
+  def remove_grouping_filter_url(grouping_index, field_operator, clear_path = nil)
     q_params = params[:q]
     if q_params.is_a?(String)
       q_params = {}
@@ -175,50 +243,87 @@ module ActivitiesHelper
     end
     current_params = q_params || {}
     
-    # Handle nested structure (q[g][0][g][0], q[g][0][g][1])
+    if current_params[:groupings] && current_params[:groupings][grouping_index]
+      new_params = current_params.deep_dup
+      new_params[:groupings][grouping_index].delete(field_operator)
+      
+      if new_params[:groupings][grouping_index].empty?
+        new_params[:groupings].delete(grouping_index)
+      end
+      
+      if new_params[:groupings].empty?
+        new_params.delete(:groupings)
+      end
+      
+      base_path = clear_path || activities_path
+      query_string = build_nested_query_string(new_params)
+      query_string.present? ? "#{base_path}?#{query_string}" : base_path
+    else
+      clear_path || activities_path
+    end
+  end
+
+  def remove_filter_url(group_index, filter_index, clear_path = nil)
+    q_params = params[:q]
+    if q_params.is_a?(String)
+      q_params = {}
+    elsif q_params.respond_to?(:to_unsafe_h)
+      q_params = q_params.to_unsafe_h
+    end
+    current_params = q_params || {}
+    
     if group_index.to_s.include?('_')
-      # Format: "0_0" or "0_1" for nested groups
       main_group, nested_group = group_index.to_s.split('_')
       
       if current_params[:g] && current_params[:g][main_group] && current_params[:g][main_group][:g] && current_params[:g][main_group][:g][nested_group]
         new_params = current_params.deep_dup
         new_params[:g][main_group][:g][nested_group][:c].delete(filter_index)
         
-        # If no more filters in this nested group, remove the nested group
         if new_params[:g][main_group][:g][nested_group][:c].empty?
           new_params[:g][main_group][:g].delete(nested_group)
         end
         
-        # If no more nested groups, remove the main group
         if new_params[:g][main_group][:g].empty?
           new_params[:g].delete(main_group)
         end
         
-        # If no more groups, remove the g key
         if new_params[:g].empty?
           new_params.delete(:g)
         end
         
-        activities_path(q: new_params)
+        base_path = clear_path || activities_path
+        query_string = build_nested_query_string(new_params)
+        query_string.present? ? "#{base_path}?#{query_string}" : base_path
       else
-        activities_path
+        clear_path || activities_path
       end
     else
       if current_params[:g] && current_params[:g][group_index]
         new_params = current_params.deep_dup
-        new_params[:g][group_index][:c].delete(filter_index)
         
-        if new_params[:g][group_index][:c].empty?
-          new_params[:g].delete(group_index)
+        if new_params[:g][group_index][:c]
+          new_params[:g][group_index][:c].delete(filter_index)
+          
+          if new_params[:g][group_index][:c].empty?
+            new_params[:g].delete(group_index)
+          end
+        else
+          new_params[:g][group_index].delete(filter_index)
+          
+          if new_params[:g][group_index].keys == ['m'] || new_params[:g][group_index].empty?
+            new_params[:g].delete(group_index)
+          end
         end
         
         if new_params[:g].empty?
           new_params.delete(:g)
         end
         
-        activities_path(q: new_params)
+        base_path = clear_path || activities_path
+        query_string = build_nested_query_string(new_params)
+        query_string.present? ? "#{base_path}?#{query_string}" : base_path
       else
-        activities_path
+        clear_path || activities_path
       end
     end
   end

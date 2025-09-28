@@ -49,6 +49,7 @@ class ActivitiesController < ApplicationController
     @kinds = Activity::KINDS
     @urgencies = Activity::URGENCIES
     @table_columns = activity_table_columns
+    @filterable_fields = filterable_fields
     
     @total_pages = (@total_count.to_f / @per_page).ceil
     @total_pages = 1 if @total_pages == 0 && @total_count > 0

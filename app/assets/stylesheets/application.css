@@ -9,6 +9,7 @@
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
   
+  --color-gray-50: #f9fafb;
   --color-gray-100: #f9fafb;
   --color-gray-200: #e5e7eb;
   --color-gray-300: #d1d5db;
@@ -22,6 +23,11 @@
   --color-white: #ffffff;
   --color-blue-light: #eff6ff;
   --color-red-light: #fef2f2;
+  --color-red-200: #fecaca;
+  --color-red-800: #991b1b;
+  --color-yellow-light: #fef3c7;
+  --color-yellow-200: #fde68a;
+  --color-yellow-800: #92400e;
   
   /* Modal and overlay colors */
   --color-overlay: rgba(0, 0, 0, 0.5);
@@ -40,6 +46,7 @@
   --spacing-lg: 16px;
   --spacing-xl: 24px;
   --spacing-2xl: 32px;
+  --spacing-5xl: 80px;
   
   /* Specific spacing for filters modal */
   --spacing-filter-padding: 20px;
@@ -59,7 +66,19 @@
   --transition-fast: all 0.2s ease;
   
   /* Typography */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
   --font-size-modal-title: 20px;
+  
+  /* Modal dimensions */
+  --max-width-modal: 1000px;
+  --width-sidebar: 200px;
+  
+  /* Button sizes */
+  --size-button: 40px;
+  --size-button-sm: 32px;
 }
 
 

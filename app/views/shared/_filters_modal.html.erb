@@ -81,3 +81,8 @@
 <script type="application/json" id="users-data">
   <%= @users.map { |u| { id: u.id, name: u.name } }.to_json.html_safe %>
 </script>
+
+<!-- Filterable Fields Data for JavaScript -->
+<script type="application/json" id="filterable-fields-data">
+  <%= @filterable_fields.to_json.html_safe %>
+</script>

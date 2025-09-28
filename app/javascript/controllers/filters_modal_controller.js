@@ -33,6 +33,8 @@ export default class extends Controller {
       3: "Baixa"
     };
     
+    this.filterableFields = this.getFilterableFieldsData();
+    
     this.addValidationStyles();
     this.centerOperatorOptions();
     
@@ -46,44 +48,7 @@ export default class extends Controller {
   }
 
   addValidationStyles() {
-    if (document.getElementById('filters-validation-styles')) {
-      return;
-    }
-    
-    const style = document.createElement('style');
-    style.id = 'filters-validation-styles';
-    style.textContent = `
-      .filter-invalid {
-        border: 2px solid #dc3545 !important;
-        border-radius: 6px !important;
-        background-color: #fff5f5 !important;
-        animation: shake 0.5s ease-in-out;
-      }
-      
-      .filter-invalid .filters-select,
-      .filter-invalid input {
-        border-color: #dc3545 !important;
-        background-color: #fff5f5 !important;
-      }
-      
-      @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        25% { transform: translateX(-5px); }
-        75% { transform: translateX(5px); }
-      }
-      
-      .validation-error-message {
-        animation: fadeIn 0.3s ease-in-out;
-      }
-      
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-    `;
-    
-    document.head.appendChild(style);
-  }
+}
 
   handleKeydown(event) {
     if (event.key === 'Escape' && this.modalTarget.classList.contains('show')) {
@@ -108,6 +73,8 @@ export default class extends Controller {
       this.addFilter();
       this.updateButtonStates();
     }
+    
+    this.addValidationClearListeners();
   }
 
   closeModal() {
@@ -276,20 +243,29 @@ export default class extends Controller {
     const filterRow = event.target.closest('.filters-filter-row');
     const valueContainer = filterRow.querySelector('.filters-value-container');
     
-    valueContainer.removeAttribute('data-field-type');
+    // Encontrar o tipo do campo nos dados dinâmicos
+    const fieldData = this.filterableFields.find(f => f.value === field);
+    const fieldType = fieldData ? fieldData.type : 'text';
     
-    if (['kind', 'urgency', 'priority', 'user_id'].includes(field)) {
-      valueContainer.setAttribute('data-field-type', 'select');
-      this.renderSelectField(valueContainer, field, filterRow);
-    } else if (field === 'status') {
-      valueContainer.setAttribute('data-field-type', 'boolean');
-      this.renderBooleanField(valueContainer, filterRow);
-    } else if (['start_date', 'end_date'].includes(field)) {
-      valueContainer.setAttribute('data-field-type', 'date');
-      this.renderDateField(valueContainer, filterRow);
-    } else {
-      valueContainer.setAttribute('data-field-type', 'text');
-      this.renderTextField(valueContainer, filterRow);
+    valueContainer.removeAttribute('data-field-type');
+    valueContainer.setAttribute('data-field-type', fieldType);
+    
+    // Renderizar baseado no tipo dinâmico
+    switch (fieldType) {
+      case 'select':
+        this.renderSelectField(valueContainer, field, filterRow);
+        break;
+      case 'boolean':
+        this.renderBooleanField(valueContainer, filterRow);
+        break;
+      case 'date':
+        this.renderDateField(valueContainer, filterRow);
+        break;
+      case 'number':
+        this.renderNumberField(valueContainer, filterRow);
+        break;
+      default:
+        this.renderTextField(valueContainer, filterRow);
     }
   }
 
@@ -302,6 +278,23 @@ export default class extends Controller {
         const parsed = JSON.parse(jsonContent);
         return parsed;
       } catch (error) {
+        return [];
+      }
+    }
+    
+    return [];
+  }
+
+  getFilterableFieldsData() {
+    const fieldsDataElement = document.getElementById('filterable-fields-data');
+    
+    if (fieldsDataElement) {
+      const jsonContent = fieldsDataElement.textContent;
+      try {
+        const parsed = JSON.parse(jsonContent);
+        return parsed;
+      } catch (error) {
+        console.error('Error parsing filterable fields data:', error);
         return [];
       }
     }
@@ -399,6 +392,21 @@ export default class extends Controller {
     }
   }
 
+  renderNumberField(container, filterRow) {
+    const existingValue = container.querySelector('input, select')?.value || '';
+    
+    container.innerHTML = `
+      <input type="number" class="filters-select" id="value-${filterRow.id.replace('filter-row-', '')}" placeholder="Digite o número..." step="any">
+    `;
+    
+    if (existingValue) {
+      const newInput = container.querySelector('input');
+      if (newInput) {
+        newInput.value = existingValue;
+      }
+    }
+  }
+
   clearFilters(resetCounters = true) {
     const form = this.element.querySelector('form');
     form.reset();
@@ -485,8 +493,8 @@ export default class extends Controller {
             <div class="filters-group-operator-section">
               <label class="filters-label">Operador entre filtros:</label>
               <select name="q[g][${groupIndex}][c][m]" class="filter-operator filters-select" data-action="change->filters-modal#updateFilterOperator" id="operator-${groupId}">
-                <option value="and">E (AND)</option>
-                <option value="or">OU (OR)</option>
+                <option value="and">E</option>
+                <option value="or">OU</option>
               </select>
             </div>
             
@@ -507,23 +515,18 @@ export default class extends Controller {
     const groupIndex = parseInt(groupId.replace('group_', '')) - 1;
     const filterIndex = this.filterCounts[`group_${groupId}`] - 1;
     
+    // Gerar opções dinâmicas baseadas nos campos disponíveis
+    const fieldOptions = this.filterableFields.map(field => 
+      `<option value="${field.value}">${field.label}</option>`
+    ).join('');
+    
     return `
       <div class="filters-filter-row" id="filter-row-${filterId}">
         <div class="filters-filter-grid">
           <div class="filters-filter-field">
             <label class="filters-label">Campo:</label>
             <select name="q[g][${groupIndex}][c][${filterIndex}][a][0][name]" class="filters-select" data-action="change->filters-modal#updateFilterField" id="field-${filterId}">
-              <option value="title">Título</option>
-              <option value="description">Descrição</option>
-              <option value="status">Status</option>
-              <option value="kind">Tipo</option>
-              <option value="urgency">Urgência</option>
-              <option value="priority">Prioridade</option>
-              <option value="user_id">Usuário</option>
-              <option value="start_date">Data Início</option>
-              <option value="end_date">Data Término</option>
-              <option value="completed_percent">% Completo</option>
-              <option value="points">Pontos</option>
+              ${fieldOptions}
             </select>
           </div>
           
@@ -574,10 +577,10 @@ export default class extends Controller {
     let targetElement = null;
     
     if (type === 'groups') {
-      message = `Limite de ${this.maxGroupsValue} grupos atingido`;
+      message = `Limite máximo de ${this.maxGroupsValue} grupos atingido. Remova um grupo para adicionar outro.`;
       targetElement = this.element.querySelector('button[data-action*="addGroup"]');
     } else if (type === 'filters' && groupId) {
-      message = `Limite de ${this.maxFiltersPerGroupValue} filtros atingido`;
+      message = `Limite máximo de ${this.maxFiltersPerGroupValue} filtros por grupo atingido. Remova um filtro para adicionar outro.`;
       targetElement = document.getElementById(`add-filter-${groupId}`);
     }
     
@@ -586,31 +589,24 @@ export default class extends Controller {
     if (message && targetElement) {
       const messageElement = document.createElement('div');
       messageElement.className = `limit-message limit-message-${type}${groupId ? `-${groupId}` : ''}`;
-      messageElement.style.cssText = `
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        color: #721c24;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        margin-left: 8px;
-        white-space: nowrap;
-      `;
       messageElement.innerHTML = `
-        <span>⚠️</span>
+        <span style="font-size: 16px;">🚫</span>
         <span>${message}</span>
       `;
       
-      targetElement.parentNode.insertBefore(messageElement, targetElement.nextSibling);
+      // Insert after the target element's parent container
+      const container = targetElement.closest('.filters-group') || targetElement.closest('.filters-container');
+      if (container) {
+        container.appendChild(messageElement);
+      } else {
+        targetElement.parentNode.insertBefore(messageElement, targetElement.nextSibling);
+      }
       
       setTimeout(() => {
         if (messageElement.parentNode) {
           messageElement.remove();
         }
-      }, 4000);
+      }, 5000);
     }
   }
 
@@ -682,12 +678,18 @@ export default class extends Controller {
       addGroupButton.disabled = true;
       addGroupButton.style.opacity = '0.5';
       addGroupButton.style.cursor = 'not-allowed';
-      addGroupButton.title = `Limite de ${this.maxGroupsValue} grupos atingido`;
+      addGroupButton.title = `Limite máximo de ${this.maxGroupsValue} grupos atingido. Remova um grupo para adicionar outro.`;
+      addGroupButton.style.backgroundColor = '#f8f9fa';
+      addGroupButton.style.borderColor = '#dee2e6';
+      addGroupButton.style.color = '#6c757d';
     } else {
       addGroupButton.disabled = false;
       addGroupButton.style.opacity = '1';
       addGroupButton.style.cursor = 'pointer';
       addGroupButton.title = `Adicionar grupo (${this.groupCount}/${this.maxGroupsValue})`;
+      addGroupButton.style.backgroundColor = '';
+      addGroupButton.style.borderColor = '';
+      addGroupButton.style.color = '';
       this.clearLimitMessages('groups');
     }
   }
@@ -703,12 +705,18 @@ export default class extends Controller {
         button.disabled = true;
         button.style.opacity = '0.5';
         button.style.cursor = 'not-allowed';
-        button.title = `Limite de ${this.maxFiltersPerGroupValue} filtros atingido`;
+        button.title = `Limite máximo de ${this.maxFiltersPerGroupValue} filtros por grupo atingido. Remova um filtro para adicionar outro.`;
+        button.style.backgroundColor = '#f8f9fa';
+        button.style.borderColor = '#dee2e6';
+        button.style.color = '#6c757d';
       } else {
         button.disabled = false;
         button.style.opacity = '1';
         button.style.cursor = 'pointer';
         button.title = `Adicionar filtro (${this.filterCounts[groupId] || 0}/${this.maxFiltersPerGroupValue})`;
+        button.style.backgroundColor = '';
+        button.style.borderColor = '';
+        button.style.color = '';
         this.clearLimitMessages('filters', groupId);
       }
     });
@@ -735,6 +743,23 @@ export default class extends Controller {
     if (existingError) {
       existingError.remove();
     }
+    
+    const filterRows = this.element.querySelectorAll('.filters-filter-row');
+    filterRows.forEach(row => {
+      row.classList.remove('filter-invalid');
+    });
+  }
+
+  addValidationClearListeners() {
+    const formElements = this.element.querySelectorAll('input, select');
+    formElements.forEach(element => {
+      element.addEventListener('input', () => {
+        this.clearValidationError();
+      });
+      element.addEventListener('change', () => {
+        this.clearValidationError();
+      });
+    });
   }
 
   restoreFiltersFromUrl() {
@@ -744,8 +769,9 @@ export default class extends Controller {
   validateFilters() {
     const filterRows = this.element.querySelectorAll('.filters-filter-row');
     let hasValidFilter = false;
+    let invalidFilters = [];
     
-    filterRows.forEach((filterRow) => {
+    filterRows.forEach((filterRow, index) => {
       const fieldSelect = filterRow.querySelector('select[data-action*="updateFilterField"]');
       const operatorSelect = filterRow.querySelector('select[id*="operator"]');
       const valueInput = filterRow.querySelector('input[id*="value"]');
@@ -758,14 +784,25 @@ export default class extends Controller {
         const operator = operatorSelect.value;
         const value = valueElement.value.trim();
         
+        filterRow.classList.remove('filter-invalid');
+        
         if (field && operator && value) {
           hasValidFilter = true;
+        } else {
+          filterRow.classList.add('filter-invalid');
+          invalidFilters.push(index + 1);
         }
       }
     });
     
     if (!hasValidFilter) {
-      this.showValidationError('Por favor, preencha pelo menos um filtro.');
+      if (filterRows.length === 0) {
+        this.showValidationError('Por favor, adicione pelo menos um filtro.');
+      } else if (invalidFilters.length === filterRows.length) {
+        this.showValidationError('Por favor, preencha todos os campos dos filtros (Campo, Operador e Valor).');
+      } else {
+        this.showValidationError('Por favor, preencha pelo menos um filtro completamente.');
+      }
       return false;
     }
     
@@ -778,7 +815,10 @@ export default class extends Controller {
     
     const errorDiv = document.createElement('div');
     errorDiv.className = 'validation-error-message';
-    errorDiv.textContent = message;
+    errorDiv.innerHTML = `
+      <span style="font-size: 16px;">⚠️</span>
+      <span>${message}</span>
+    `;
     
     const form = this.element.querySelector('form');
     if (form) {
@@ -790,11 +830,11 @@ export default class extends Controller {
     const params = {};
     const groups = {};
     
-    // Find all filter groups
     const groupElements = this.element.querySelectorAll('[id^="group-"]');
     
-    groupElements.forEach((groupElement, groupIndex) => {
+    groupElements.forEach((groupElement, arrayIndex) => {
       const groupId = groupElement.id.replace('group-', '');
+      const groupIndex = parseInt(groupId.replace('group_', '')) - 1;
       
       const groupBlock = groupElement.closest('.filters-block');
       const groupOperator = groupBlock.querySelector('.filters-operator-select')?.value || 'and';
@@ -837,44 +877,24 @@ export default class extends Controller {
     });
     
     // Build Ransack group parameters using the correct structure
-    const groupKeys = Object.keys(groups);
+    const groupKeys = Object.keys(groups).sort((a, b) => parseInt(a) - parseInt(b));
     
     if (groupKeys.length > 0) {
       // Check if we need OR between groups
       const hasOrBetweenGroups = groupKeys.some(key => groups[key].groupOperator === 'or');
       
-      groupKeys.forEach((groupIndex, index) => {
+      groupKeys.forEach((groupIndex) => {
         const group = groups[groupIndex];
         
-        // Check if we have multiple filters with the same field in this group
-        const fieldCounts = {};
-        group.filters.forEach(filter => {
-          fieldCounts[filter.field] = (fieldCounts[filter.field] || 0) + 1;
+        // Always use the simple structure for consistency with display logic
+        group.filters.forEach((filter, filterIndex) => {
+          const paramKey = `q[g][${groupIndex}][${filter.field}_${filter.operator}]`;
+          params[paramKey] = filter.value;
         });
         
-        const hasMultipleSameField = Object.values(fieldCounts).some(count => count > 1);
-        
-        if (hasMultipleSameField) {
-          // Use Ransack groupings structure for multiple filters with same field
-          group.filters.forEach((filter, filterIndex) => {
-            params[`q[groupings][${filterIndex}][${filter.field}_${filter.operator}]`] = filter.value;
-          });
-          
-          // Add the operator between groupings
-          if (group.filters.length > 1) {
-            params['q[m]'] = group.filterOperator;
-          }
-        } else {
-          // Use the simple structure for filters with different fields
-          group.filters.forEach((filter, filterIndex) => {
-            const paramKey = `q[g][${index}][${filter.field}_${filter.operator}]`;
-            params[paramKey] = filter.value;
-          });
-          
-          // Add the group operator (m) for this group
-          if (group.filters.length > 1) {
-            params[`q[g][${index}][m]`] = group.filterOperator;
-          }
+        // Add the group operator (m) for this group
+        if (group.filters.length > 1) {
+          params[`q[g][${groupIndex}][m]`] = group.filterOperator;
         }
       });
       
