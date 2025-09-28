@@ -16,8 +16,10 @@ class ActivitiesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should create activity" do
+    user = User.create!(name: "Test User")
+    
     assert_difference("Activity.count") do
-      post activities_url, params: { activity: { completed_percent: @activity.completed_percent, description: @activity.description, end_date: @activity.end_date, points: @activity.points, priority: @activity.priority, start_date: @activity.start_date, status: @activity.status, title: @activity.title, kind: @activity.kind, urgency: @activity.urgency } }
+      post activities_url, params: { activity: { completed_percent: @activity.completed_percent, description: @activity.description, end_date: @activity.end_date, points: @activity.points, priority: @activity.priority, start_date: @activity.start_date, status: @activity.status, title: @activity.title, kind: @activity.kind, urgency: @activity.urgency, user_id: user.id } }
     end
 
     assert_redirected_to activity_url(Activity.last)
@@ -69,6 +71,8 @@ class ActivitiesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should apply filters correctly" do
+    user = User.create!(name: "Test User")
+    
     # Create test activities
     activity1 = Activity.create!(
       title: "Atividade 53",
@@ -81,7 +85,7 @@ class ActivitiesControllerTest < ActionDispatch::IntegrationTest
       priority: 1,
       urgency: 1,
       points: 5,
-      user_id: 1
+      user: user
     )
     
     activity2 = Activity.create!(
@@ -95,7 +99,7 @@ class ActivitiesControllerTest < ActionDispatch::IntegrationTest
       priority: 1,
       urgency: 1,
       points: 5,
-      user_id: 1
+      user: user
     )
 
     # Test filter parameters with correct structure

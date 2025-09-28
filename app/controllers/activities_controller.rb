@@ -51,6 +51,14 @@ class ActivitiesController < ApplicationController
     @table_columns = activity_table_columns
     
     @total_pages = (@total_count.to_f / @per_page).ceil
+    @total_pages = 1 if @total_pages == 0 && @total_count > 0
+    
+    if @page > @total_pages && @total_pages > 0
+      @page = @total_pages
+      @offset = (@page - 1) * @per_page
+      @activities = all_activities.limit(@per_page).offset(@offset)
+    end
+    
     @has_previous = @page > 1
     @has_next = @page < @total_pages
   end
@@ -73,6 +81,7 @@ class ActivitiesController < ApplicationController
   # POST /activities or /activities.json
   def create
     @activity = Activity.new(activity_params)
+    @users = User.all
 
     respond_to do |format|
       if @activity.save
@@ -87,6 +96,8 @@ class ActivitiesController < ApplicationController
 
   # PATCH/PUT /activities/1 or /activities/1.json
   def update
+    @users = User.all
+    
     respond_to do |format|
       if @activity.update(activity_params)
         format.html { redirect_to @activity, notice: "Activity was successfully updated." }
