@@ -143,16 +143,19 @@ export default class extends Controller {
   }
 
   addFilter(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const buttonId = event.target.id;
-    
-    if (!buttonId || !buttonId.startsWith('add-filter-')) {
-      return;
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
     }
+
+    const buttonId = event ? event.target.id : null;
     
-    const groupId = buttonId.replace('add-filter-', '');
+    let groupId;
+    if (buttonId && buttonId.startsWith('add-filter-')) {
+      groupId = buttonId.replace('add-filter-', '');
+    } else {
+      groupId = 'group_1';
+    }
     
     const groupElement = document.getElementById(`group-${groupId}`);
     const filterContainer = document.getElementById(`filters-container-${groupId}`);

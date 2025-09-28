@@ -89,7 +89,6 @@ module ActivitiesHelper
     ]
   end
 
-  # Renderiza o cabeçalho da tabela
   def render_table_header(columns)
     content_tag :thead, style: "background-color: #f2f2f2;" do
       content_tag :tr do
@@ -100,7 +99,6 @@ module ActivitiesHelper
     end
   end
 
-  # Renderiza uma célula da tabela
   def render_table_cell(activity, column)
     value = case column[:key]
     when :actions
@@ -121,7 +119,6 @@ module ActivitiesHelper
     content_tag :td, value, style: "padding: 8px;"
   end
 
-  # Renderiza as ações da atividade
   def render_activity_actions(activity)
     [
       link_to('Show', activity, style: "margin-right: 6px;"),
@@ -130,7 +127,6 @@ module ActivitiesHelper
     ].join.html_safe
   end
 
-  # Retorna o nome amigável do campo para exibição
   def get_field_display_name(field)
     field_names = {
       'title' => 'Título',
@@ -148,7 +144,6 @@ module ActivitiesHelper
     field_names[field] || field.humanize
   end
 
-  # Retorna o nome amigável do operador para exibição
   def get_operator_display_name(operator)
     operator_names = {
       'eq' => '=',
