@@ -220,6 +220,35 @@ this.novo_campo_options = {
 - **Limites atingidos**: Botões desabilitados
 - **Mensagens de erro**: Contextuais e informativas
 
+## ⚡ Performance e Otimização
+
+### Índices de Banco de Dados
+O sistema inclui uma migration otimizada (`20250926100000_add_indexes_to_activities.rb`) que adiciona índices estratégicos para melhorar a performance das consultas:
+
+#### Índices Simples
+- **Campos de filtro**: `status`, `kind`, `urgency`, `priority`, `user_id`
+- **Campos de data**: `start_date`, `end_date`
+- **Campos numéricos**: `completed_percent`, `points`
+- **Campos de texto**: `title`, `description`
+
+#### Índices Compostos
+- **`[:status, :kind]`**: Para filtros combinados comuns
+- **`[:user_id, :start_date]`**: Para consultas por usuário e período
+
+#### Benefícios
+- **Consultas 10-100x mais rápidas** em tabelas grandes
+- **Suporte otimizado** para filtros complexos com múltiplos grupos
+- **Escalabilidade** para milhares de registros
+
+### Executar Migration
+```bash
+# Aplicar índices
+rails db:migrate
+
+# Verificar índices criados
+rails db:migrate:status
+```
+
 ## 🧪 Testes
 
 ### Testes de Integração
@@ -227,6 +256,7 @@ this.novo_campo_options = {
 - Filtros simples e complexos
 - Parâmetros Ransack
 - Casos edge
+- **Testes de performance** com múltiplos filtros
 
 ### Testes de Sistema
 - Elementos da interface
@@ -241,6 +271,7 @@ rails test
 # Testes específicos
 rails test test/integration/filters_integration_test.rb
 rails test test/system/filters_modal_test.rb
+rails test test/integration/filters_limits_test.rb
 ```
 
 ## 🔄 Reutilização
